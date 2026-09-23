@@ -23,6 +23,9 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
+`scikit-learn==1.7.2` is pinned because it reproduces the published grouped-CV folds and predictions with
+`random_state=42`; newer scikit-learn versions can produce different grouped folds despite using the same seed.
+
 SMI-TED itself must also be available when creating embeddings. Supply its `smi_ted_light` directory with
 `--smi-ted-dir`; the training-data preparation script can download the required files from Hugging Face if the
 argument is omitted.

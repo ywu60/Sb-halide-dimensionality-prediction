@@ -5,7 +5,9 @@ openai>=3.11,<4
 openpyxl
 pandas
 rdkit
-scikit-learn
+# The published train/test predictions and grouped-CV folds were generated with 1.7.2.
+# Newer releases can produce different StratifiedGroupKFold assignments with the same seed.
+scikit-learn==1.7.2
 scipy
 shap
 tiktoken
