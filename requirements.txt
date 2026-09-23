@@ -1,0 +1,15 @@
+joblib
+matplotlib
+numpy
+openai>=3.11,<4
+openpyxl
+pandas
+rdkit
+scikit-learn
+scipy
+shap
+tiktoken
+
+# Optional: required only when generating SMI-TED embeddings.
+huggingface-hub
+torch

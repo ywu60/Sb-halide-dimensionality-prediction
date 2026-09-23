@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets and local configuration
+.env
+*.env
+
+# Raw/prepared data and trained models
+data/
+*.xlsx
+*.joblib
+*.pt
+
+# Generated results
+results_ml/
+results_llm/
+results/
+results_with_data/
+comparison/
+figures/
+models_fulldata/
+*_checkpoint.csv
+raw_llm_responses.jsonl
+
+# OS/editor files
+.DS_Store
+.idea/
+.vscode/

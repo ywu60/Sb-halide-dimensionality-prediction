@@ -1,1 +1,105 @@
 # Sb-halide dimensionality prediction
+
+Clean research code for binary prediction of inorganic Sb-halide connectivity:
+`0 = 0D` and `1 = non-0D` (1D, 2D, or 3D).
+
+This repository contains code only. Input spreadsheets, generated embeddings, trained model files, API
+responses, and figures are intentionally excluded from version control.
+
+## Layout
+
+- `ml_training/`: feature engineering, leakage-controlled splitting, Random Forest, and SVM training.
+- `model_prediction/`: feature generation and full-data ML prediction for new compounds.
+- `feature_importance/`: permutation and SHAP importance for the selected ML model.
+- `llm_prediction/`: held-out LLM evaluation and full-data in-context prediction for new compounds.
+- `llm_feature_importance/`: final fixed-category paired experiment, with and without labeled examples.
+- `evaluation/`: ML/LLM comparison and confusion-matrix plots.
+- `common/`: shared plotting utilities.
+
+Run commands from the repository root using module syntax so imports resolve consistently.
+
+## Installation
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+SMI-TED itself must also be available when creating embeddings. Supply its `smi_ted_light` directory with
+`--smi-ted-dir`; the training-data preparation script can download the required files from Hugging Face if the
+argument is omitted.
+
+## ML workflow
+
+```bash
+python -m ml_training.prepare_data \
+  --input data/merged_compound_cif_cation.xlsx \
+  --output data/prepared_data.xlsx
+
+python -m ml_training.train_models \
+  --data data/prepared_data.xlsx \
+  --out results_ml
+
+python -m feature_importance.permutation_importance \
+  --data data/prepared_data.xlsx \
+  --results results_ml/ml_results.csv
+
+python -m feature_importance.shap_importance \
+  --data data/prepared_data.xlsx \
+  --results results_ml/ml_results.csv
+```
+
+For the project-specific mixed-halide candidates:
+
+```bash
+python -m model_prediction.featurize_new_compounds \
+  --input data/new_mixed_halide_sb_compounds.xlsx \
+  --smi-ted-dir /path/to/smi_ted_light \
+  --output data/new_compound_features.csv
+
+python -m model_prediction.retrain_and_predict \
+  --data data/prepared_data.xlsx \
+  --new-features data/new_compound_features.csv \
+  --out results_ml/new_compounds
+```
+
+## LLM prediction
+
+Set `OPENAI_API_KEY`, then run:
+
+```bash
+python -m llm_prediction.evaluate_llms \
+  --data data/prepared_data.xlsx \
+  --out results_llm
+
+python -m llm_prediction.predict_new_compounds \
+  --data data/prepared_data.xlsx \
+  --new-features data/new_compound_features.csv \
+  --output results_llm/new_compound_predictions.csv
+```
+
+## LLM feature importance
+
+The final implementation uses seven fixed categories, four LLMs, 30 controlled presentation orders, and paired
+conditions with and without the 321 training examples. It replaces the older free-text phrase-clustering
+experiment.
+
+```bash
+python -m unittest -v llm_feature_importance.test_stage2
+
+python -m llm_feature_importance.stage2_collect_paired \
+  --data data/prepared_data.xlsx
+
+python -m llm_feature_importance.stage2_analyze --out llm_feature_importance/results
+python -m llm_feature_importance.stage2_analyze --out llm_feature_importance/results_with_data
+python -m llm_feature_importance.stage2_plot --out llm_feature_importance/results
+python -m llm_feature_importance.stage2_plot --out llm_feature_importance/results_with_data
+python -m llm_feature_importance.stage2_compare \
+  --no-data llm_feature_importance/results \
+  --with-data llm_feature_importance/results_with_data \
+  --out llm_feature_importance/comparison
+```
+
+All OpenAI collection scripts are resumable and write checkpoints locally. Do not commit API keys, raw data,
+model binaries, or generated response logs.
