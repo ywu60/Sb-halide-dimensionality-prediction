@@ -3,6 +3,25 @@
 Research code for binary prediction of inorganic Sb-halide connectivity:
 `0 = 0D` and `1 = non-0D` (1D, 2D, or 3D).
 
+## Project overview
+
+This project studies the structural dimensionality of organic–inorganic antimony-halide compounds. We first
+identified relevant compounds across a broad collection of chemistry papers and extracted their compositions,
+organic cations, structural information, and experimentally reported dimensionalities. These literature data
+form the labeled dataset used throughout the project.
+
+We then trained two conventional machine-learning classifiers—Random Forest and support vector machine
+(SVM)—to predict whether the inorganic Sb-halide connectivity is zero-dimensional (0D) or extended (non-0D,
+including 1D, 2D, and 3D structures). To evaluate the capabilities of current general-purpose AI systems on the
+same scientific task, we tested several GPT models using zero-shot, few-shot, and all-shot prompting and compared
+their held-out performance with the conventional ML baselines.
+
+To understand the basis of these predictions, we analyzed the trained ML models using permutation importance and separately asked the GPT models to rank a set of chemical and compositional features. We want to see how feature importance differs across these models.
+
+Finally, we synthesized ten new Sb-halide compounds and applied the best-performing ML and GPT configurations to
+predict their dimensionality. This provides an external application of the models beyond the literature-derived
+training and test dataset.
+
 
 ## Layout
 
