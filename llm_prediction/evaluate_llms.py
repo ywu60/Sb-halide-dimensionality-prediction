@@ -1,14 +1,4 @@
-"""GPT baselines on the analysis-3 Sb-halide dataset, same held-out test split as the ML models.
-
-Adapted from analysis 2's 03_run_llm.py:
-  - target is target_non0D (0 = 0D, 1 = non-0D) -- FLIPPED vs. analysis 2's target_0D (1 = 0D). The
-    prompt instruction, shot labels, and probability columns are all updated to match.
-  - the model is only ever asked to emit a single visible character, "0" or "1"; token-level
-    log-probabilities for exactly those two tokens are converted into probability_0D / probability_non0D
-    wherever the API returns logprobs (gpt-4.1). Reasoning models return a label only.
-
-    export OPENAI_API_KEY=...
-    python 05_run_llm.py --data prepared_data.xlsx --out results_llm
+"""GPT baselines on the Sb-halide dataset, same held-out test split as the ML models.
 """
 import argparse, json, math, os, threading, time
 from concurrent.futures import ThreadPoolExecutor
@@ -21,9 +11,6 @@ from sklearn.metrics import accuracy_score, f1_score
 
 HALIDES = ["F", "Cl", "Br", "I"]
 
-# Standard API text-token prices per million tokens. Keep this table deliberately explicit:
-# a blank entry means the script preserves usage but does not present a misleading cost estimate.
-# Cache-write fees are excluded because Chat Completions usage does not report cache-write tokens.
 MODEL_TOKEN_PRICES_USD_PER_MILLION = {
     "gpt-6-astra": {"input": 10.00, "cached_input": 1.00, "output": 50.00},
 }
@@ -52,8 +39,6 @@ def api_object_to_dict(value):
     try:
         return value.model_dump()
     except (AttributeError, TypeError):
-        # openai==1.55 with this environment's Pydantic raises from both model_dump()
-        # and dict(). Its public model fields are nevertheless safely available in __dict__.
         def plain(x):
             if isinstance(x, dict): return {k: plain(v) for k, v in x.items()}
             if isinstance(x, (list, tuple)): return [plain(v) for v in x]
@@ -62,8 +47,7 @@ def api_object_to_dict(value):
         return plain(value)
 
 def select_12_shots(train: pd.DataFrame):
-    # RDKit is only required for diversity-aware 12-shot selection. Keeping this import local
-    # lets zero-shot and all-shot API evaluations run in a lightweight inference environment.
+
     from rdkit import Chem, DataStructs
     from rdkit.Chem import rdFingerprintGenerator
     gen = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=1024); fps = {}
@@ -88,17 +72,13 @@ def select_12_shots(train: pd.DataFrame):
                 if best is None or candidate[:2] > best[:2]: best = candidate
             chosen.append(best[2])
         chosen_by_label[label] = chosen
-    # Interleave 0D / non-0D so shots are NOT grouped by class. Presenting all of one class as the final block
-    # induces strong recency bias (the model tends to echo the last examples' label); alternating removes it.
+
     interleaved = [i for pair in zip(chosen_by_label[0], chosen_by_label[1]) for i in pair]
     shots = train.loc[interleaved].copy(); shots["shot_class"] = shots.target_non0D.map({0: "0D", 1: "non-0D"})
     return shots
 
 def order_all_shots(train: pd.DataFrame, seed: int, limit: int | None):
-    # The whole train split as examples. Classes are spread evenly across the sequence rather than plainly
-    # shuffled: with the class imbalance a shuffle leaves long single-class runs, and a single-class tail is
-    # exactly the recency bias select_12_shots interleaves to avoid. Each class is laid on the same [0, 1]
-    # interval and the two are merged, so the minority class stays uniformly distributed at any imbalance.
+
     rng = np.random.default_rng(seed); positions = []
     for label in [0, 1]:
         idx = rng.permutation(train.index[train.target_non0D.eq(label)].to_numpy())
@@ -126,8 +106,7 @@ def prompt_for(r: pd.Series, representation: str, shots: pd.DataFrame | None):
     inorganic halide composition, the inorganic halide-to-metal ratio, and the organic cation.
     Your entire visible answer must be exactly one character: 0 or 1."""
     examples = ""
-    # The example block sits before the only part that varies across test compounds, so the long all-shot
-    # prefix is identical call to call and OpenAI's automatic prompt caching covers it.
+
     if shots is not None: examples = "\n\nLabeled examples:\n" + "\n\n".join(chemical_block(x, representation) + f"\nAnswer: {int(x.target_non0D)}" for _, x in shots.iterrows())
     return instruction + examples + "\n\nCompound to classify:\n" + chemical_block(r, representation) + "\nAnswer:"
 
@@ -135,8 +114,7 @@ def prompt_messages(r: pd.Series, representation: str, shots: pd.DataFrame | Non
     prompt = prompt_for(r, representation, shots)
     if shots is None:
         return [{"role": "user", "content": prompt}]
-    # Astra's cache matches explicit content-block boundaries. The first block is identical
-    # across all test rows; only the second block varies by compound.
+
     marker = "\n\nCompound to classify:\n"
     prefix, suffix = prompt.rsplit(marker, 1)
     return [{"role": "user", "content": [
@@ -160,7 +138,6 @@ def class_token_bias(model: str):
     try:
         encoding = tiktoken.encoding_for_model(model)
     except KeyError:
-        # Older tiktoken releases may not map dated GPT-4.1 snapshot names.
         encoding = tiktoken.get_encoding("o200k_base")
     token_ids = set()
     for text in ["0", "1", " 0", " 1"]:
@@ -181,8 +158,6 @@ def one_token_result(client: OpenAI, model: str, messages, reasoning_effort: str
             if supports_logprobs(model):
                 params |= {"logprobs": True, "top_logprobs": 20, "temperature": 1, "max_completion_tokens": 1, "logit_bias": class_token_bias(model)}
             else:
-                # Older OpenAI Python SDKs do not yet expose reasoning_effort as a typed
-                # Chat Completions argument. extra_body preserves the identical wire request.
                 extra_body = {"reasoning_effort": reasoning_effort}
                 if prompt_cache_key:
                     extra_body["prompt_cache_key"] = prompt_cache_key
@@ -193,8 +168,7 @@ def one_token_result(client: OpenAI, model: str, messages, reasoning_effort: str
             if answer not in {"0", "1"}:
                 usage = api_object_to_dict(response.usage) if response.usage else {}
                 details = usage.get("completion_tokens_details") or {}
-                # A reasoning model can spend the whole budget on hidden reasoning and return no visible digit
-                # (finish_reason == "length"). Grow the budget so the retry has room to emit the answer.
+
                 if not supports_logprobs(model) and choice.finish_reason == "length": budget = min(budget * 2, 32768)
                 raise RuntimeError(
                     f"Expected exactly 0 or 1, received {choice.message.content!r}; "
@@ -225,14 +199,12 @@ def one_token_result(client: OpenAI, model: str, messages, reasoning_effort: str
             missing = [label for label, values in class_logprobs.items() if not values]
             if len(missing) == 2: raise RuntimeError(f"Neither class token was returned: {class_logprobs}")
             if missing:
-                # The model was confident enough that the losing class fell below the top-20 logprob cutoff even
-                # with the equal bias. Its true mass is below the least-likely returned token, so floor it there
-                # rather than discarding the prediction (yields a near-1/near-0 probability, which is correct).
+
                 floor = min((x.logprob for x in item.top_logprobs), default=item.logprob)
                 for label in missing: class_logprobs[label] = [floor]
             raw0 = sum(math.exp(lp) for lp in class_logprobs["0"]); raw1 = sum(math.exp(lp) for lp in class_logprobs["1"]); denom = raw0 + raw1
             lp0 = math.log(raw0); lp1 = math.log(raw1)
-            # token "0" = 0D, token "1" = non-0D under the analysis-3 label convention.
+            # token "0" = 0D, token "1" = non-0D under label convention.
             result |= {
                 "prediction": int(raw1 >= raw0),
                 "has_token_probabilities": True,
@@ -247,11 +219,9 @@ def one_token_result(client: OpenAI, model: str, messages, reasoning_effort: str
             }
             return result
         except Exception as e:
-            # A quota 429 is not a rate limit -- retrying it just burns the retry budget on every remaining call.
             if is_quota_error(e): raise QuotaExhausted(str(e)) from e
             last = e
             print(f"    Attempt {attempt + 1}/{retries} failed: {type(e).__name__}: {e}", flush=True)
-            # Capped exponential backoff: concurrent runs hit 429s, which need longer waits than a bad-answer retry.
             if attempt + 1 < retries: time.sleep(min(2 ** attempt, 30))
     raise RuntimeError(f"Failed for {model}: {last}")
 
@@ -302,18 +272,15 @@ def main():
     checkpoint = out / "llm_predictions_checkpoint.csv"; rows = [] if a.fresh or not checkpoint.exists() else pd.read_csv(checkpoint).to_dict("records")
     done = {(str(x["compound_id"]), str(x["model_requested"]), str(x["representation"]), str(x["prompting"])) for x in rows if x.get("status") == "ok"}
     failures = []; total = len(a.models) * len(a.representations) * len(conditions) * len(test); call_number = 0
-    # Count only the keys this run plans to make; len(done) also covers checkpointed conditions outside the
-    # current --models / --prompting selection, which used to make the progress denominator negative.
+
     planned = [(str(r.compound_id), model, representation, shot_name) for model in a.models for representation in a.representations for shot_name, _ in conditions for _, r in test.iterrows()]
     remaining = sum(key not in done for key in planned)
     print(f"Planned evaluations: {total}; already completed in checkpoint: {total - remaining}; to run: {remaining}", flush=True)
     lock = threading.Lock(); aborted = threading.Event()
     def evaluate(job):
-        # Runs on a worker thread. The API call happens outside the lock; only the shared bookkeeping and the
-        # checkpoint write are serialized. One log line per completed call, since interleaved start/finish pairs
-        # are unreadable once calls overlap.
+
         nonlocal call_number
-        if aborted.is_set(): return  # quota died on another thread; nothing further can succeed
+        if aborted.is_set(): return  
         model, representation, shot_name, examples, r = job
         key = (str(r.compound_id), model, representation, shot_name)
         effort = "none" if supports_logprobs(model) else a.reasoning_effort
@@ -324,8 +291,7 @@ def main():
             prob_text = f", P(0D|0/1)={result['probability_0D_conditional_01']:.4f}" if result["has_token_probabilities"] else ""
             outcome = f"prediction={result['prediction']}{prob_text}"; error = None
         except QuotaExhausted as e:
-            # Don't checkpoint a row for this: it carries no result, and a clean checkpoint means the resume
-            # needs no manual cleanup.
+
             if not aborted.is_set():
                 aborted.set()
                 print(f"\n*** ABORTING: OpenAI quota exhausted. {e}\n*** Banked results are intact; top up and rerun the same command to resume.\n", flush=True)
@@ -348,8 +314,7 @@ def main():
                 if not jobs: continue
                 mode = "token probabilities" if supports_logprobs(model) else f"label only, reasoning={a.reasoning_effort}"
                 print(f"--- {model} | {representation} | {shot_name} | {mode} | {len(jobs)} calls, concurrency={a.concurrency} ---", flush=True)
-                # Prime the shared prompt prefix with one call before fanning out: launching N workers at once
-                # would have all N miss the cache, which costs real money on the ~32k-token all-shot prompt.
+
                 evaluate(jobs[0])
                 if len(jobs) > 1 and not aborted.is_set():
                     with ThreadPoolExecutor(max_workers=a.concurrency) as pool: list(pool.map(evaluate, jobs[1:]))
@@ -361,8 +326,7 @@ def main():
             raise SystemExit("Run aborted on quota exhaustion before any evaluation completed; top up and rerun the same command to resume.")
         raise RuntimeError("No evaluations were completed")
     good = pred[pred.status.eq("ok")].copy(); summary_rows = []
-    # The checkpoint dedups on model_requested but the summary groups on model_resolved, so two aliases for one
-    # model (e.g. "gpt-5.6" and "gpt-5.6-sol") would double-count the compounds they share. Drop those here.
+
     before = len(good); good = good.drop_duplicates(["compound_id", "model_resolved", "representation", "prompting"], keep="last")
     if len(good) < before: print(f"Dropped {before - len(good)} duplicate compound/model/condition rows before scoring", flush=True)
     for keys, x in good.groupby(["model_resolved", "representation", "prompting", "reasoning_effort"]):
@@ -374,3 +338,5 @@ def main():
         raise SystemExit(f"Run aborted on quota exhaustion with {remaining_now} evaluations still outstanding; rerun the same command after topping up.")
 
 if __name__ == "__main__": main()
+
+# end

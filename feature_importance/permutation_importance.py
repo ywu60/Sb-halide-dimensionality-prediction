@@ -1,31 +1,9 @@
 """Permutation feature importance for the best ML model (ranked by test_macro_f1 in ml_results.csv).
 
-Permutation importance (unlike RandomForest's built-in impurity importance) is model-agnostic, computed on
-held-out test data, and directly answers "how much does macro-F1 drop if this feature is shuffled" -- which
-is what we actually care about for a deployment-style comparison.
-
-IMPORTANT: this permutes the model's TRANSFORMED input (after the ColumnTransformer's median-impute / PCA),
-not the raw columns. For a no-PCA setting the two are the same. For a PCA setting (e.g. SMI-TED PCA-80) they
-are not: shuffling a single one of the 768 raw pre-PCA embedding dimensions barely perturbs any of the ~7
-resulting principal components (each raw dimension contributes a diluted fraction of each PC), so it almost
-never flips a discrete prediction and looks ~0 important even when the model's fitted coefficients on the PCs
-are large. Permuting the PCs themselves (what the model actually consumes) is the unit that answers "does the
-cation representation matter" correctly -- confirmed by cross-checking against the SVM's linear coefficients.
-
-Two complementary estimates are written:
-  1. Single-test-set importance (--n-repeats shuffles of the one held-out test split). Increasing --n-repeats
-     tightens this estimate, but only removes shuffle (Monte Carlo) noise -- it cannot address the fact that
-     the 80-compound test set is itself one particular sample, so a feature can look "significant" here purely
-     because of how this specific split landed.
-  2. Cross-validated importance: refits the same (setting, hyperparameters) on each of the 5 GridSearchCV
-     training folds and measures permutation importance on each fold's held-out validation slice, then reports
-     the between-fold mean/std and how many of the 5 folds agree in sign. This is the more honest "does this
-     ranking generalize" measure, since it varies which compounds are held out, not just which shuffle is drawn.
-
-    python 04_permutation_importance.py --data prepared_data.xlsx --results results_ml/ml_results.csv --out results_ml
+--data prepared_data.xlsx --results results_ml/ml_results.csv --out results_ml
 
 Writes:
-  results_ml/permutation_importance.csv               single test-set estimate
+  results_ml/permutation_importance.csv                single test-set estimate
   results_ml/permutation_importance_cv.csv             cross-validated estimate
   figures/ml_permutation_importance.png                single test-set estimate, top-20, +-1 SE error bars
   figures/ml_permutation_importance_cv.png             cross-validated estimate, +-1 between-fold SE error bars
@@ -51,11 +29,7 @@ FEATURE_LABEL = {"inorganic_halide_per_metal": "Halide:Sb ratio"}
 
 
 def transformed_matrix_and_names(pipe: Pipeline, df: pd.DataFrame, columns: list[str]):
-    """Reproduce the exact matrix the model sees (post-impute / PCA) and name each resulting column.
 
-    Mirrors analysis 2's 08_shap_importance.py transformed_matrix(): re-applies the fitted ColumnTransformer
-    rather than reconstructing it, so column order is guaranteed to match training.
-    """
     ct = pipe.named_steps["features"]
     X_raw = df[columns].to_numpy(float)
     X = ct.transform(X_raw)
@@ -82,7 +56,7 @@ def cv_permutation_importance(df: pd.DataFrame, best: pd.Series, n_repeats: int,
     """
     rdkit = ml.rdkit_descriptors(df.canonical_cation_smiles) if "rdkit" in best.setting else pd.DataFrame(index=df.index)
     smi = df[[c for c in df.columns if c.startswith("smi_ted_")]].reset_index(drop=True) if "smi_ted" in best.setting else pd.DataFrame(index=df.index)
-    # Must mirror the `configs` construction in 03_run_ml.py main() exactly.
+    
     configs = [("halide_per_metal", ["inorganic_halide_per_metal"], pd.DataFrame(index=df.index), None, False)]
     for name, z, scale in [("rdkit", rdkit, True), ("smi_ted", smi, False)]:
         for label, variance in [("no_pca", None), ("pca80", .80), ("pca90", .90)]: configs.append((f"inorganic+{name}_{label}", ml.INORGANIC, z, variance, scale))
@@ -129,7 +103,7 @@ def cv_permutation_importance(df: pd.DataFrame, best: pd.Series, n_repeats: int,
 def plot_importance(d: pd.DataFrame, xerr_col: str, xlabel: str, title: str, out_path: Path, show_title: bool = True):
     d = d.iloc[::-1]
     labels = d.feature.map(lambda f: FEATURE_LABEL.get(f, f))
-    fig, ax = new_fig((8.6, 7.4))  # widened/heightened from (6.6, 6.28) to give the bigger labels room
+    fig, ax = new_fig((8.6, 7.4)) 
     colors = [CATION_COLOR if b == "cation" else INORGANIC_COLOR for b in d.block]
     ax.barh(range(len(d)), d.mean_importance, xerr=d[xerr_col], height=0.66, color=colors,
             error_kw={"ecolor": INK, "elinewidth": 1, "capsize": 3}, zorder=3)
@@ -169,7 +143,7 @@ def main():
     y_test = test.target_non0D.astype(int).to_numpy()
 
     X_test, names = transformed_matrix_and_names(pipe, test, columns)
-    downstream = pipe[1:]  # everything after the "features" ColumnTransformer (scale + model, or just model)
+    downstream = pipe[1:] 
 
     result = permutation_importance(downstream, X_test, y_test, scoring="f1_macro", n_repeats=a.n_repeats, random_state=42, n_jobs=-1)
     imp = pd.DataFrame({
@@ -178,10 +152,7 @@ def main():
         "mean_importance": result.importances_mean,
         "std_importance": result.importances_std,
     })
-    # Standard error of the MEAN, not the raw per-shuffle spread: this is what actually shrinks as n_repeats
-    # grows, and is the right quantity to ask "is this mean distinguishable from zero" (mean_importance /
-    # se_importance is an approximate z-score under CLT). This is still a SINGLE-test-set estimate -- see
-    # cv_permutation_importance() below for the between-fold (generalization) estimate.
+
     imp["se_importance"] = imp.std_importance / np.sqrt(a.n_repeats)
     imp["z_score"] = imp.mean_importance / imp.se_importance.replace(0, np.nan)
     imp = imp.sort_values("mean_importance", ascending=False).reset_index(drop=True)

@@ -1,9 +1,6 @@
 """Build inorganic + SMI-TED features for the 10 new mixed-halide Sb compounds, plus a hypothetical
 "pure-halide" sibling of each (same cation, same Sb-halide framework size, but the entire inorganic
-halide site collapsed onto whichever of Cl/I was already the majority) -- 20 rows total -- and save
-to disk.
-
-The input workbook and SMI-TED model location are supplied explicitly so the script is portable.
+halide site collapsed onto whichever of Cl/I was already the majority)
 """
 import argparse
 import re
@@ -34,12 +31,6 @@ def build_input_df(input_path: Path, sheet_name: str):
         "canonical_cation_smiles": new["A-cation"].map(CATION_SMILES),
         "formula_normalized": new["Actual formula (SCXRD)"],
         "water_count": 0.0,
-        # both Cl and I are present at the inorganic (Sb-halide) site in every one of the 10
-        # compounds per the SCXRD-derived Cl/I ratio columns; the "(mostly)" majority label in
-        # the source sheet doesn't change which halides occupy the site, only their proportion,
-        # and one row's majority label is flagged as inconsistent with its own ratios in the
-        # Validation Notes sheet -- irrelevant here since fractions are derived from the formula,
-        # not from that text label.
         "Sb_halide": "Cl/I",
         "sb_oxidation_state": new["Sb charge"].str.replace("+", "", regex=False).radd("+"),
     })
@@ -48,14 +39,7 @@ def build_input_df(input_path: Path, sheet_name: str):
 
 
 def pure_halide_row(row: pd.Series, majority: str, minority: str) -> pd.Series:
-    """Collapse a mixed Cl/I formula onto the majority halide alone: the minority halide's atom
-    count is dropped entirely and the majority token absorbs the full Cl+I total (so the inorganic
-    halide-per-metal ratio is preserved, just made 100% one halide instead of mixed). Any halide
-    atom that's actually part of the organic cation (e.g. the ring Cl in 4-chlorophenethylammonium,
-    NEW_02) is folded in correctly as long as it belongs to the same element as the site's majority
-    halide -- true for all 10 compounds here, since no cation in this set carries the minority
-    halide as a substituent.
-    """
+
     tokens = row.formula_normalized.split()
     parsed = [re.match(r"([A-Z][a-z]?)([0-9.]*)", tok) for tok in tokens]
     total = sum(float(m.group(2)) if m.group(2) else 1.0
@@ -106,9 +90,7 @@ def main():
     ).reset_index(drop=True)
 
     feature_df = pd.concat([df.reset_index(drop=True), smi_feats], axis=1)
-    # actual_formula_scxrd: the real SCXRD-measured formula for the 10 mixed-halide compounds;
-    # for the 10 hypothetical pure-halide siblings there is no measured structure, so this is
-    # just the constructed pure formula itself.
+
     feature_df["actual_formula_scxrd"] = pd.concat(
         [raw["Actual formula (SCXRD)"], pure_df["formula_normalized"]], ignore_index=True
     ).to_numpy()

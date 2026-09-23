@@ -1,16 +1,6 @@
 """SHAP feature importance for the best ML model (ranked by test_macro_f1 in ml_results.csv).
 
-Complements the permutation importance in 04_permutation_importance.py: SHAP attributes each individual
-test-compound prediction additively (so it also shows *direction* -- does a high X:M ratio push toward 0D or
-away?), computed on held-out test compounds. TreeExplainer is exact for RandomForest; for a linear-kernel SVM
-LinearExplainer is exact; for anything else (e.g. an RBF-kernel SVM, which has no closed-form attribution) a
-model-agnostic permutation explainer is used as a fallback -- slower, but correct for any scikit-learn model.
-
-The attributed score is P(non-0D) for RandomForest (TreeExplainer explains predict_proba) and the raw SVM
-decision-function margin for SVM (no calibrated predict_proba is fit in 03_run_ml.py); both are monotonic in
-"how confidently non-0D", so direction (sign) is comparable even though the two are not on the same scale.
-
-    python 11_shap_importance.py --data prepared_data.xlsx --results results_ml/ml_results.csv
+ --data prepared_data.xlsx --results results_ml/ml_results.csv
 
 Writes:
   results_ml/shap_importance.csv
@@ -32,7 +22,7 @@ from feature_importance import permutation_importance as perm_mod
 
 
 def shap_values_for_non0d(pipe, X_background: np.ndarray, X_explain: np.ndarray, names: list[str]):
-    """Return a (n_explain, n_features) attribution array, oriented toward the non-0D (label 1) class."""
+    
     model = pipe.named_steps["model"]
     if isinstance(model, RandomForestClassifier):
         explainer = shap.TreeExplainer(model)
@@ -40,10 +30,10 @@ def shap_values_for_non0d(pipe, X_background: np.ndarray, X_explain: np.ndarray,
         index = int(np.flatnonzero(model.classes_ == 1)[0])
         values = np.asarray(values)
         return (values[index] if isinstance(values, list) else values[:, :, index] if values.ndim == 3 else values), "P(non-0D)"
-    if hasattr(model, "coef_"):  # linear-kernel SVC: exact linear attribution
+    if hasattr(model, "coef_"):  # linear-kernel SVC
         explainer = shap.LinearExplainer(model, X_background)
         return np.asarray(explainer.shap_values(X_explain)), "SVM decision-function margin"
-    # RBF (or any other) kernel: no closed form, fall back to the model-agnostic permutation explainer.
+    # RBF (or any other) kernel
     background = shap.sample(X_background, min(50, len(X_background)), random_state=42)
     explainer = shap.Explainer(model.decision_function, background, algorithm="permutation", feature_names=names)
     return np.asarray(explainer(X_explain, max_evals=2 * len(names) + 1).values), "SVM decision-function margin"

@@ -1,7 +1,5 @@
 """The big picture: every ML setting and every LLM condition, one bar each, sorted by test macro-F1.
 
-    python 10_plot_final_comparison.py
-
 Writes figures/all_models_comparison.png.
 """
 import argparse

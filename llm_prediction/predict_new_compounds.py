@@ -6,14 +6,9 @@ beating representation=smiles's 0.773).
 Reuses the evaluation module's serialization, prompt, response, and ordering functions so
 the new compounds and the in-context examples are formatted identically to the original eval.
 
-Unlike an ML retraining step, there is no "fit" to redo here -- an LLM prompt has no
-trained parameters to refit. The equivalent of "use all labeled data, not just the 80% train
-split" is using all 400 compounds (train+test combined) as the all-shot in-context examples,
-instead of just the 321-row train split used for held-out evaluation.
 
 gpt-5.1 is a reasoning model (supports_logprobs() is False for it), so it returns a hard 0/1
-label only -- no calibrated probability, unlike the gpt-4.1 configs which had logprob-derived
-probabilities available.
+label only -- no calibrated probability.
 
 Set ``OPENAI_API_KEY`` directly or through the requested ``--env-file``.
 """
@@ -48,14 +43,12 @@ from llm_prediction import evaluate_llms as run_llm
 
 def build_new_rows(feature_path: Path):
     feature_df = pd.read_csv(feature_path)
-    # prompt_for()/chemical_block() only touch these columns; everything else (smi_ted_*, etc.) is unused here.
+    
     needed = ["compound_id", "organic_component", "canonical_cation_smiles", "formula_normalized",
               "sb_oxidation_state", "water_count", "inorganic_F_fraction", "inorganic_Cl_fraction",
               "inorganic_Br_fraction", "inorganic_I_fraction", "inorganic_halide_per_metal"]
     df = feature_df[needed + ["actual_formula_scxrd"]].copy()
-    # CSV round-trip parsed "+3" as the integer 3, dropping the leading "+" that the training
-    # shots' sb_oxidation_state strings ("+3", "+5", "+3/+5") always carry -- restore it so the
-    # new compounds are formatted identically to the in-context examples.
+
     df["sb_oxidation_state"] = df["sb_oxidation_state"].apply(
         lambda v: v if str(v).startswith("+") else f"+{v}")
     return df
@@ -108,8 +101,7 @@ def main():
         return row
 
     jobs = [("name", r) for _, r in new_rows.iterrows()]
-    # Prime the shared all-shot prefix with one call first so the rest hit OpenAI's prompt cache
-    # instead of all missing it simultaneously.
+
     evaluate(jobs[0])
     with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
         list(pool.map(evaluate, jobs[1:]))

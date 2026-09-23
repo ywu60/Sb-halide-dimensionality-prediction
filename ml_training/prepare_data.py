@@ -1,15 +1,6 @@
-"""Feature engineering + a single grouped train/test split for the analysis-3 dataset.
+"""Feature engineering + a single grouped train/test split for the dataset.
 
-Adapted from analysis 2's 01_prepare_data.py for merged_compound_cif_cation.xlsx:
-  - drops rows with unknown/missing dimensionality
-  - target is FLIPPED relative to analysis 2: target_non0D = 0 for 0D, 1 for non-0D
-    (analysis 2 used the opposite convention, 1 = 0D)
-  - adds a water_count feature (new column in this dataset, not present in analysis 2)
-  - train/test split groups are the union-find connected components of paper_id AND
-    canonical_cation_smiles, so neither a paper nor a cation can appear on both sides
-    of the split (analysis 2 only grouped by paper; here we also guard against cation leakage)
-
-    python 01_prepare_data.py --input "../merged_compound_cif_cation.xlsx" --output prepared_data.xlsx
+--input "../merged_compound_cif_cation.xlsx" --output prepared_data.xlsx
 """
 import argparse, importlib, re, sys
 from pathlib import Path
@@ -45,7 +36,7 @@ def cation_multiplier(total: dict, organic: dict):
 def inorganic_composition(r: pd.Series, total: dict | None):
     """Return (halide fractions, inorganic-halide-per-metal ratio, mixed flag) for the inorganic sublattice only.
 
-    These describe the Sb/Bi-halide anion framework (composition + X:M stoichiometry) and deliberately
+    These describe the Sb-halide anion framework (composition + X:M stoichiometry) and deliberately
     contain no whole-formula organic composition, so they can serve as a cation-free baseline."""
     listed = [x.strip() for x in str(r.Sb_halide).split("/")]
     if any(x not in HALIDES for x in listed): raise ValueError(f"Unsupported Sb_halide for {r.compound_id}: {r.Sb_halide}")
@@ -69,11 +60,7 @@ def inorganic_composition(r: pd.Series, total: dict | None):
     return fractions, (denom / metal if metal else np.nan), mixed
 
 def common_features(df: pd.DataFrame):
-    """Model-input features only: Sb-oxidation-state one-hot and the inorganic Sb/Bi-halide sublattice
-    composition (used by 03_run_ml.py's INORGANIC block). Whole-formula organic composition (elemental
-    fractions, H/C and N/C ratios, molecular weight, Bi_fraction, has_water, ...) is deliberately not
-    computed here: no downstream script consumes it, and the ML feature design keeps organic/cation
-    information entirely out of this block (see 03_run_ml.py's INORGANIC comment)."""
+
     rows = []
     for _, r in df.iterrows():
         c = parse_formula(r.formula_normalized)
@@ -87,10 +74,7 @@ def common_features(df: pd.DataFrame):
     return pd.DataFrame(rows, index=df.index)
 
 def connected_groups(df: pd.DataFrame):
-    """Union-find over (paper_id, canonical_cation_smiles): a paper and every cation it reports are fused
-    into one component, and two papers that happen to share a cation are fused into the same component too.
-    This is stricter than analysis 2 (which grouped by paper only, letting a cation recur across the split) --
-    here neither a paper nor a cation can appear on both sides of train/test."""
+
     parent: dict = {}
     def find(x):
         parent.setdefault(x, x)
@@ -188,7 +172,6 @@ def main():
     df = df[df.dimensionality.isin(DIMS)].reset_index(drop=True)
     print(f"Dropped {n_before - len(df)} rows with unknown/missing dimensionality ({n_before} -> {len(df)})")
 
-    # FLIPPED vs. analysis 2: 0 = 0D, 1 = non-0D.
     df["target_non0D"] = (df.dimensionality != "0D").astype(int)
     groups = connected_groups(df)
     tr, te = grouped_holdout(df.target_non0D.to_numpy(), groups, seed=a.seed)

@@ -1,18 +1,10 @@
 """Retrain the selected SVM configuration on all 400 labeled compounds and predict new compounds.
 
-Rationale: the train/test split in ``ml_training.train_models`` exists to select a configuration
-and get an honest performance estimate (already done -- this is the best by test macro-F1).
-For actually deploying on new external compounds, refitting on 100% of the labeled data recovers
-the ~20% of examples that were held out, which should only help the final model. Hyperparameters
-are re-tuned by grouped CV on the full data too (not just copied from the train-only fit), since
-the optimal grid point can shift slightly with more training data.
 
 Reuses feature_pipeline/save_bundle/INORGANIC from ``ml_training.train_models`` (identical pipeline:
 impute -> [PCA for SVM] -> RobustScaler (SVM only) -> classifier), and grouped CV folds from the
 same ``connected_group`` column prepared by ``ml_training.prepare_data`` (paper+cation union-find), so no
 group leaks into a fold's validation set here either.
-
-The prepared training data and candidate feature table are supplied on the command line.
 """
 import argparse
 from pathlib import Path
@@ -68,7 +60,7 @@ def main():
     gs_svm = GridSearchCV(svm, svm_grid, scoring="f1_macro", cv=cv, n_jobs=args.n_jobs, refit=True).fit(X, y)
 
     # Threshold tuning uses the same recipe as ml_training.train_models.tuned_svm, but the out-of-fold
-    # predictions and final fit both use the full dataset (no held-out test slice left to predict on)
+    # predictions and final fit both use the full dataset
     best_svm = clone(gs_svm.best_estimator_)
     oof = cross_val_predict(best_svm, X, y, cv=cv, method="decision_function", n_jobs=args.n_jobs)
     platt = LogisticRegression(max_iter=1000).fit(oof.reshape(-1, 1), y)

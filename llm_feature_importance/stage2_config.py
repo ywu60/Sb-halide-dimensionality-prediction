@@ -1,4 +1,4 @@
-"""Immutable protocol definition for the Stage 2 fixed-category experiment."""
+"""protocol definition for the Stage 2 fixed-category experiment."""
 
 from __future__ import annotations
 

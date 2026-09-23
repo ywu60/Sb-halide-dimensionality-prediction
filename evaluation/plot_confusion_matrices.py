@@ -1,7 +1,4 @@
 """Confusion matrices for the single best ML model and the single best LLM condition (by test macro-F1).
-
-    python 09_plot_confusion_matrices.py
-
 Writes figures/confusion_matrix_best_ml.png and figures/confusion_matrix_best_llm.png.
 """
 import argparse

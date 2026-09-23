@@ -1,10 +1,10 @@
 """Bar chart comparing RandomForest vs SVM test macro-F1 across every ML feature setting.
 
-    python 07_plot_ml_results.py --results results_ml/ml_results.csv --out figures/ml_results_comparison.png
+--results results_ml/ml_results.csv --out figures/ml_results_comparison.png
 """
 import argparse
 from pathlib import Path
-import numpy as np
+import numpy as np 
 import pandas as pd
 
 from common.plot_style import INK, BLUE, ORANGE, new_fig, style_axes, save

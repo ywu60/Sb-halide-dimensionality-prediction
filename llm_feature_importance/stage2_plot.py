@@ -72,8 +72,7 @@ def plot_importance_heatmap(df: pd.DataFrame, output: Path) -> None:
         for name in MODEL_NAMES
     ]
     cmap = LinearSegmentedColormap.from_list("white_blue", ["#f7fbff", BLUE])
-    # Keep the matrix compact horizontally while leaving enough vertical room
-    # for larger, publication-readable labels and annotations.
+
     fig, ax = plt.subplots(figsize=(8.8, 7.0))
     image = ax.imshow(pivot.to_numpy(), cmap=cmap, vmin=0, vmax=1, aspect="auto")
     for i in range(len(FEATURE_IDS)):
@@ -138,10 +137,7 @@ def plot_stability(df: pd.DataFrame, output: Path) -> None:
     fig, ax = plt.subplots(figsize=(8.2, 5.4))
     for i, model_name in enumerate(MODEL_NAMES):
         color = MODEL_COLORS[model_name]
-        # Draw the percentile interval by its endpoints instead of passing it as a
-        # symmetric error around the observed mean. Under the plan's ranking-vector
-        # bootstrap, duplicate resampled trials have tau=1, so a percentile interval
-        # can occasionally be shifted enough not to contain the original point estimate.
+
         ax.vlines(x[i], lower[i], upper[i], color=color, linewidth=1.6, zorder=2)
         ax.hlines([lower[i], upper[i]], x[i] - 0.06, x[i] + 0.06, color=color, linewidth=1.6, zorder=2)
         ax.scatter(x[i], means[i], s=58, color=color, zorder=3)

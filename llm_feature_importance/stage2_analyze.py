@@ -170,8 +170,7 @@ def bootstrap_mean_pairwise_tau(
     n = tau_matrix.shape[0]
     upper_i, upper_j = np.triu_indices(n, k=1)
     means = np.empty(replicates, dtype=float)
-    # Indexing a precomputed matrix is exactly equivalent to recomputing Kendall's tau for
-    # each resampled pair, including tau=1 when the same original ranking is sampled twice.
+
     for start in range(0, replicates, 1_000):
         stop = min(start + 1_000, replicates)
         sampled = rng.integers(0, n, size=(stop - start, n))
@@ -238,7 +237,7 @@ def intermodel_agreement(importance: pd.DataFrame) -> tuple[pd.DataFrame, pd.Dat
             .reindex(FEATURE_IDS)
             .mean_borda.to_numpy(dtype=float)
         )
-        # Average ranks preserve ties; scipy's Kendall tau-b then handles those ties explicitly.
+        # Average ranks preserve ties
         final_rank_vectors[model_id] = rankdata(-scores, method="average")
 
     matrix = pd.DataFrame(np.eye(len(MODEL_IDS)), index=MODEL_IDS, columns=MODEL_IDS, dtype=float)

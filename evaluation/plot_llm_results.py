@@ -6,7 +6,7 @@ Two figures:
                                 drawn as a reference line.
   llm_allshot_gain.png         diverging bars -- (all-shot minus 12-shot) per condition.
 
-    python 08_plot_llm_results.py --llm-results results_llm/llm_results.csv
+ --llm-results results_llm/llm_results.csv
 """
 import argparse
 from pathlib import Path
@@ -20,10 +20,8 @@ from common.plot_style import INK, INK_SOFT, PROMPTING_RAMP, POSITIVE, NEGATIVE,
 SHORT = {"gpt-4.1-2025-04-14": "gpt-4.1", "gpt-5.1-2025-11-13": "gpt-5.1", "gpt-5.5-2026-04-23": "gpt-5.5", "gpt-5.6-sol": "gpt-5.6-sol", "gpt-6-astra": "gpt-6-astra"}
 PROMPTING = [("zero", "zero-shot", PROMPTING_RAMP["zero"]), ("12shot", "12-shot", PROMPTING_RAMP["few_shot"]), ("allshot", "all-shot", PROMPTING_RAMP["all_shot"])]
 
-# Three-stop, light-to-dark sequential ramps used for publication-oriented alternatives.
-# They follow the ordered-palette principle recommended by Nature and ColorBrewer.
 SEQUENTIAL_PALETTES = {
-    # Selected final palette: neutral baseline followed by the original blue progression.
+    
     "selected_gray_blue_navy": ["#d9dde2", "#2a78d6", "#104281"],
     "blue": ["#c6dbef", "#4292c6", "#084594"],
     "purple_magenta": ["#e7e1ef", "#c994c7", "#980043"],
@@ -57,8 +55,7 @@ def group_labels(pairs):
 def plot_grouped(df: pd.DataFrame, ml_baseline: float, ml_label: str, out: Path):
     score = df.set_index(["model", "representation", "prompting"]).macro_f1
     pairs = list(dict.fromkeys(zip(df.model, df.representation)))
-    x = np.arange(len(pairs)); w = 0.26  # widened from 0.20 -- that left too big a gap (0.40)
-    # before the next group; this leaves a smaller but still visible one (~0.22).
+    x = np.arange(len(pairs)); w = 0.26  
 
     fig, ax = new_fig((max(14.5, 1.25 * len(pairs)), 7.4))
     bars_by_cond, vals_by_cond = [], []
@@ -68,16 +65,8 @@ def plot_grouped(df: pd.DataFrame, ml_baseline: float, ml_label: str, out: Path)
         bars = ax.bar(x + offset, vals, w, color=color, label=label, zorder=3)
         bars_by_cond.append(bars); vals_by_cond.append(vals)
 
-    # Labels are placed after all bars are drawn (rather than per-condition), group by group,
-    # because avoiding overlap needs to reason about all 3 bars in the group together. At this
-    # font size a "0.xxx" label is wider than the (now-narrow, flush) bars, so a dead-center
-    # label always overhangs into its neighbor(s) -- the fix is directional, not just "left":
-    # the left bar's label is pushed further left (into this group's own share of the inter-group
-    # gap), the right bar's label pushed further right (same, on the other side), and the middle
-    # bar's label stays centered -- which also moves the outer two labels' overhang away from the
-    # middle one instead of into it.
-    OUTWARD_SHIFT = [-0.04, 0.0, 0.04]  # smaller than before -- wider bars overhang less
-    COLLIDE_GAP = 0.012  # value gap below which same-group neighbors visually collide at this font size
+    OUTWARD_SHIFT = [-0.04, 0.0, 0.04]  
+    COLLIDE_GAP = 0.012 
     for j in range(len(pairs)):
         group_vals = [vals_by_cond[i][j] for i in range(3)]
         group_bars = [bars_by_cond[i][j] for i in range(3)]
@@ -85,7 +74,7 @@ def plot_grouped(df: pd.DataFrame, ml_baseline: float, ml_label: str, out: Path)
         for k in (0, 1):
             va, vb = group_vals[k], group_vals[k + 1]
             if np.isfinite(va) and np.isfinite(vb) and abs(va - vb) < COLLIDE_GAP:
-                extra[k + 1] += 0.02  # stagger the right-hand one up, clear of its left neighbor
+                extra[k + 1] += 0.02  
         for k, (b, v, e) in enumerate(zip(group_bars, group_vals, extra)):
             if np.isfinite(v): ax.text(b.get_x() + b.get_width() / 2 + OUTWARD_SHIFT[k], v + 0.008 + e, f"{v:.3f}", ha="center", va="bottom", fontsize=12, color=INK)
 
@@ -96,9 +85,7 @@ def plot_grouped(df: pd.DataFrame, ml_baseline: float, ml_label: str, out: Path)
     ax.set_ylabel("test macro-F1", fontsize=16)
     ax.tick_params(axis="y", labelsize=15)
     ax.set_xticks(x); ax.set_xticklabels(group_labels(pairs), fontsize=15)
-    # at this font size the legend box is wide/tall enough to sit on top of the tallest
-    # bar's value label (gpt-5.1 IUPAC name, all-shot = 0.802) when anchored inside the
-    # axes -- park it just above the top spine instead, fully clear of every bar.
+    
     ax.legend(loc="lower left", frameon=False, fontsize=15, ncol=3, title="prompting condition", title_fontsize=18, bbox_to_anchor=(0, 1.01))
     style_axes(ax)
     fig.subplots_adjust(right=0.925)
@@ -131,12 +118,12 @@ def plot_gain(df: pd.DataFrame, out: Path):
 
 
 def plot_by_representation(df: pd.DataFrame, ml_baseline: float, out: Path, colors=None):
-    """A less dense alternative to the all-in-one grouped-bar chart."""
+
     score = df.set_index(["model", "representation", "prompting"]).macro_f1
     models = list(df.model.cat.categories)
     fig, axes = plt.subplots(1, 2, figsize=(15.4, 7.2), sharey=True)
     fig.patch.set_facecolor("#ffffff")
-    # Touching bars make each model read as one compact three-condition group.
+    
     x = np.arange(len(models)) * 0.96; width = 0.22
     colors = SEQUENTIAL_PALETTES["blue"] if colors is None else colors
     refined_prompting = [(key, label, color) for (key, label, _), color in zip(PROMPTING, colors)]
@@ -146,12 +133,9 @@ def plot_by_representation(df: pd.DataFrame, ml_baseline: float, out: Path, colo
         for i, (key, label, color) in enumerate(refined_prompting):
             vals = [score.get((model, representation, key), np.nan) for model in models]
             bars = ax.bar(x + (i - 1) * width, vals, width, color=color, label=label,
-                          linewidth=0, zorder=3)
+                        linewidth=0, zorder=3)
             for j, (bar, value) in enumerate(zip(bars, vals)):
-                # All-shot is the headline condition.  Showing only these ten values retains
-                # the exact takeaway while removing the text wall above every group.
                 if key == "allshot" and np.isfinite(value):
-                    # Place labels just right of the narrow navy bar, clear of the 12-shot bar.
                     ax.text(bar.get_x() + bar.get_width() / 2 + 0.075, value + 0.011, f"{value:.3f}",
                             ha="center", va="bottom", fontsize=12, color=INK)
 
@@ -172,14 +156,12 @@ def plot_by_representation(df: pd.DataFrame, ml_baseline: float, out: Path, colo
                title="prompting condition", title_fontsize=17, fontsize=15,
                bbox_to_anchor=(0.5, 0.995))
     fig.subplots_adjust(left=0.07, right=0.93, top=0.79, bottom=0.14, wspace=0.10)
-    # Unlike the single-axis charts, this figure reserves explicit space for a figure-level
-    # legend; calling tight_layout afterwards would discard that reservation.
     fig.savefig(out, dpi=200, facecolor="#ffffff", bbox_inches="tight")
     print(f"Saved {out}")
 
 
 def plot_dot_by_representation(df: pd.DataFrame, ml_baseline: float, out: Path, colors):
-    """Zoomed alternative: position (rather than bar height) encodes performance."""
+   
     score = df.set_index(["model", "representation", "prompting"]).macro_f1
     models = list(df.model.cat.categories)
     x = np.arange(len(models))
@@ -216,7 +198,7 @@ def plot_dot_by_representation(df: pd.DataFrame, ml_baseline: float, out: Path, 
 
 
 def plot_line_by_representation(df: pd.DataFrame, ml_baseline: float, out: Path, colors):
-    """Zoomed alternative emphasizing how prompting changes each model's score."""
+
     score = df.set_index(["model", "representation", "prompting"]).macro_f1
     models = list(df.model.cat.categories)
     x = np.arange(len(models))
@@ -249,7 +231,7 @@ def plot_line_by_representation(df: pd.DataFrame, ml_baseline: float, out: Path,
 
 
 def plot_prompting_heatmap(df: pd.DataFrame, ml_baseline: float, out: Path):
-    """A compact lookup figure for all model/representation/prompting scores."""
+    """A compact figure for all model/representation/prompting scores."""
     score = df.set_index(["model", "representation", "prompting"]).macro_f1
     rows = [(model, representation) for model in df.model.cat.categories for representation in ["name", "smiles"]]
     cols = [key for key, _, _ in PROMPTING]
@@ -298,8 +280,6 @@ def main():
     astra_path = Path(a.gpt6_astra_results)
     if astra_path.exists():
         astra = pd.read_csv(astra_path)
-        # The historical baseline contains accuracy, whereas the Astra comparison artifact
-        # intentionally records only the requested macro-F1 metric. Align columns before concat.
         df = pd.concat([df, astra.reindex(columns=df.columns)], ignore_index=True)
     df = load_dataframe(df)
     incomplete = df[df.n != df.n.max()]

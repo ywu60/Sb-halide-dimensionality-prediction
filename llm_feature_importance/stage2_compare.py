@@ -239,9 +239,7 @@ def plot_stability_comparison(stability: pd.DataFrame, output: Path) -> None:
         lower = stability[f"{prefix}_ci_lower"].to_numpy(dtype=float)
         upper = stability[f"{prefix}_ci_upper"].to_numpy(dtype=float)
         yy = y + offset
-        # Draw interval endpoints directly. Percentile intervals can very rarely
-        # exclude the observed statistic, which matplotlib.errorbar rejects as a
-        # negative error length even though the interval itself is valid.
+
         ax.hlines(yy, lower, upper, color=color, linewidth=1.4, zorder=2)
         ax.vlines(lower, yy - 0.035, yy + 0.035, color=color, linewidth=1.2, zorder=2)
         ax.vlines(upper, yy - 0.035, yy + 0.035, color=color, linewidth=1.2, zorder=2)

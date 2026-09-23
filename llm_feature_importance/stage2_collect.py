@@ -48,8 +48,6 @@ def jsonable(value: Any) -> Any:
         try:
             return jsonable(value.model_dump())
         except (AttributeError, TypeError):
-            # openai==1.55 combined with this environment's Pydantic can expose
-            # model_dump() while failing internally on __pydantic_serializer__.
             pass
     if hasattr(value, "__dict__"):
         return {
@@ -66,7 +64,6 @@ def jsonable(value: Any) -> Any:
 
 
 def parse_ranking(raw_response: str) -> list[str]:
-    """Strictly validate the complete JSON response and the F1-F7 permutation."""
     try:
         payload = json.loads(raw_response)
     except json.JSONDecodeError as exc:
@@ -132,7 +129,7 @@ def verify_existing_records(
         )
     valid: dict[tuple[str, int], list[str]] = {}
     for record in records:
-        # Records produced before condition support are the preserved no-data arm.
+    
         record_condition = record.get("condition", "no_data")
         if record_condition != expected_condition:
             raise RuntimeError(

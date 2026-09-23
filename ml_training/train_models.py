@@ -1,11 +1,6 @@
-"""RandomForest + SVM baselines on the analysis-3 Sb-halide dataset.
+"""RandomForest + SVM baselines on the Sb-halide dataset.
 
-Adapted from analysis 2's 02_run_ml.py:
-  - target is target_non0D (0 = 0D, 1 = non-0D) -- FLIPPED vs. analysis 2's target_0D (1 = 0D)
-  - the inorganic feature block gains water_count (new column in this dataset)
-  - probability columns are named probability_0D / probability_non0D to match the new label meaning
-
-    python 03_run_ml.py --data prepared_data.xlsx --out results_ml
+--data prepared_data.xlsx --out results_ml
 """
 import argparse, json
 from pathlib import Path
@@ -26,11 +21,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import RobustScaler, StandardScaler
 from sklearn.svm import SVC
 
-# Cation-free baseline block: inorganic Sb-halide sublattice (anion composition, X:metal stoichiometry,
-# oxidation state) plus water-of-crystallization count. Excludes whole-formula organic composition
-# (fraction_C/H/N, H_C_ratio, molecular weight, ...) so that adding RDKit / SMI-TED cation features is a
-# clean test of "does cation information help". Bi_fraction is also excluded: only 7/400 compounds have
-# any Bi occupancy, too rare to support as a standalone feature.
+
 INORGANIC = ["sb_III", "sb_V", "sb_mixed_valence", "inorganic_F_fraction", "inorganic_Cl_fraction", "inorganic_Br_fraction", "inorganic_I_fraction", "mixed_inorganic_halide", "inorganic_halide_per_metal", "water_count"]
 
 def rdkit_descriptors(smiles: pd.Series):
@@ -59,9 +50,7 @@ def save_bundle(path: Path, model, columns: list[str], setting: str, model_name:
     joblib.dump(d, path)
 
 def tuned_svm(gs, X, y, tr, te, cv, n_jobs):
-    """Refit the best SVM, then choose the decision threshold that maximizes macro-F1 on grouped, leak-free
-    out-of-fold predictions (the default 0.5 threshold made the SVM collapse to the majority class). Returns
-    test-set predictions, P(0D)/P(non-0D) from a Platt sigmoid, and the chosen threshold."""
+
     best = clone(gs.best_estimator_)
     oof = cross_val_predict(best, X[tr], y[tr], cv=cv, method="decision_function", n_jobs=n_jobs)
     platt = LogisticRegression(max_iter=1000).fit(oof.reshape(-1, 1), y[tr])
@@ -83,10 +72,7 @@ def main():
     rdkit = rdkit_descriptors(df.canonical_cation_smiles); smi = df[smi_cols].reset_index(drop=True)
     y = df.target_non0D.astype(int).to_numpy(); groups = df.connected_group.to_numpy(); tr = np.flatnonzero(df.split.eq("train")); te = np.flatnonzero(df.split.eq("test"))
     cv = list(StratifiedGroupKFold(5, shuffle=True, random_state=42).split(np.zeros(len(tr)), y[tr], groups[tr]))
-    # Baseline = the single dominant inorganic feature (halide-per-metal ratio), no cation, no water, evaluated
-    # with the same RF/SVM models as every other setting so it is directly comparable. The cation-augmented
-    # settings add a cation representation (RDKit descriptors / SMI-TED embeddings) on top of the full
-    # inorganic + water block.
+
     configs = [("halide_per_metal", ["inorganic_halide_per_metal"], pd.DataFrame(index=df.index), None, False)]
     for name, z, scale in [("rdkit", rdkit, True), ("smi_ted", smi, False)]:
         for label, variance in [("no_pca", None), ("pca80", .80), ("pca90", .90)]: configs.append((f"inorganic+{name}_{label}", INORGANIC, z, variance, scale))
@@ -95,14 +81,7 @@ def main():
         common = df[common_cols].reset_index(drop=True); columns = common_cols + list(rep.columns); X = np.c_[common.to_numpy(float), rep.to_numpy(float)]; features = feature_pipeline(len(common_cols), rep.shape[1], variance, scale_rep)
         rf = Pipeline([("features", features), ("model", RandomForestClassifier(random_state=42, n_jobs=1, class_weight="balanced_subsample"))])
         rf_grid = {"model__n_estimators": [300], "model__max_depth": [None, 10], "model__min_samples_leaf": [1, 3], "model__max_features": ["sqrt"]}
-        # SVM needs feature scaling. RobustScaler (median/IQR), not StandardScaler (mean/std): a handful of
-        # training compounds are trace-metal-doped hosts (Sb occupancy near 0) whose inorganic_halide_per_metal
-        # blows up to >1000 (halide count over a ~0 Sb+Bi denominator). StandardScaler's std is dominated by
-        # those few outliers, which squashes every normal-range value (4-8) to near-zero after scaling and made
-        # the feature look unimportant under permutation despite having the single largest SVM coefficient.
-        # RobustScaler is insensitive to that handful of outliers, so the normal-range values keep real spread.
-        # Its decision threshold is tuned (see tuned_svm) so it no longer collapses to the majority class as it
-        # did with the default 0.5 cutoff.
+
         svm = Pipeline([("features", features), ("scale", RobustScaler()), ("model", SVC(class_weight="balanced"))])
         svm_grid = [{"model__kernel": ["linear"], "model__C": [.1, 1, 10]}, {"model__kernel": ["rbf"], "model__C": [1, 10], "model__gamma": ["scale"]}]
         for model_name, estimator, grid in [("rf", rf, rf_grid), ("svm", svm, svm_grid)]:
