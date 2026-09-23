@@ -1,10 +1,8 @@
 # Sb-halide dimensionality prediction
 
-Clean research code for binary prediction of inorganic Sb-halide connectivity:
+Research code for binary prediction of inorganic Sb-halide connectivity:
 `0 = 0D` and `1 = non-0D` (1D, 2D, or 3D).
 
-This repository contains code only. Input spreadsheets, generated embeddings, trained model files, API
-responses, and figures are intentionally excluded from version control.
 
 ## Layout
 
@@ -16,7 +14,6 @@ responses, and figures are intentionally excluded from version control.
 - `evaluation/`: ML/LLM comparison and confusion-matrix plots.
 - `common/`: shared plotting utilities.
 
-Run commands from the repository root using module syntax so imports resolve consistently.
 
 ## Installation
 
@@ -82,8 +79,8 @@ python -m llm_prediction.predict_new_compounds \
 ## LLM feature importance
 
 The final implementation uses seven fixed categories, four LLMs, 30 controlled presentation orders, and paired
-conditions with and without the 321 training examples. It replaces the older free-text phrase-clustering
-experiment.
+conditions with and without the 321 training examples. 
+
 
 ```bash
 python -m unittest -v llm_feature_importance.test_stage2
@@ -100,6 +97,3 @@ python -m llm_feature_importance.stage2_compare \
   --with-data llm_feature_importance/results_with_data \
   --out llm_feature_importance/comparison
 ```
-
-All OpenAI collection scripts are resumable and write checkpoints locally. Do not commit API keys, raw data,
-model binaries, or generated response logs.
