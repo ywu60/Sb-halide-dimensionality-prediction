@@ -1,10 +1,9 @@
-"""Stage: source-grounded verification + counter-evidence search + bounded
-targeted re-retrieval — plan §4.9, §9, prompts/07_verify_record.md.
+"""Verify records, search for counter-evidence, and retry failed categories.
 
 For each compound record:
   1. verify every field against its cited source passages;
   2. scan the paper for counter-evidence phrases not already covered by the
-     cited sources (plan §4.9's phrase list);
+     cited sources;
   3. if verification fails, run a targeted re-retrieval for the failed
      category only (not the whole paper) and redo just that field, bounded
      by `verification.max_retrieval_cycles`;
@@ -21,13 +20,13 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from schemas import CompoundRecord  # noqa: E402
-from src.build_dossiers import build_dossier  # noqa: E402
-from src.build_index import BM25Index  # noqa: E402
-from src.extract_records import extract_cation, reason_dimensionality  # noqa: E402
-from src.llm_client import LLMClient  # noqa: E402
-from src.utils import get_logger, load_config, load_prompt, load_yaml, read_jsonl, write_jsonl  # noqa: E402
-from src.validators import compute_automatic_flags  # noqa: E402
+from schemas import CompoundRecord
+from src.build_dossiers import build_dossier
+from src.build_index import BM25Index
+from src.extract_records import extract_cation, reason_dimensionality
+from src.llm_client import LLMClient
+from src.utils import get_logger, load_config, load_prompt, load_yaml, read_jsonl, write_jsonl
+from src.validators import compute_automatic_flags
 
 logger = get_logger("verify_records")
 PROMPT_VERSION = "v1"
@@ -176,8 +175,6 @@ def retry_category(
     units_by_id: dict[str, dict],
     dossiers: dict[str, dict],
 ) -> None:
-    """Targeted re-retrieval for one failed category — mutates `record` and
-    `dossiers` in place with any newly found evidence (plan §4.9, §9)."""
     index = BM25Index(units)
     top_k = cfg["retrieval"]["bm25_top_k"]
     new_hits = index.query(query, top_k)

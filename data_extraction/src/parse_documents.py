@@ -1,16 +1,12 @@
-"""Stage 1: layout-aware document parsing — plan §4.2.
+"""Parse PDFs into page-level, layout-aware evidence units.
 
-Uses PyMuPDF for page-level text blocks, reading order, and native table
-detection (`page.find_tables`). Docling is the recommended upgrade path for
-production-grade layout parsing (plan §6.3, §13) but is not installed here;
-this parser is the practical PyMuPDF fallback the plan explicitly allows.
+Uses PyMuPDF for text blocks, reading order, and native table detection.
 
 Writes:
   data/parsed/01_documents.jsonl   (one row per paper — PaperMeta)
   data/chunks/02_chunks.jsonl      (one row per evidence unit — DocumentUnit)
 
-The original block/row text is always retained verbatim in `text`; no
-cleaning step replaces it (plan §4.2).
+The original block or table-row text is retained in each unit's `text` field.
 """
 from __future__ import annotations
 
@@ -19,11 +15,11 @@ import re
 import sys
 from pathlib import Path
 
-import fitz  # PyMuPDF
+import fitz
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from schemas import DocumentUnit, PaperMeta  # noqa: E402
-from src.utils import get_logger, load_config, now_iso, write_jsonl  # noqa: E402
+from schemas import DocumentUnit, PaperMeta
+from src.utils import get_logger, load_config, now_iso, write_jsonl
 
 logger = get_logger("parse_documents")
 PARSER_VERSION = "pymupdf-1.27+heuristic-v1"
@@ -31,9 +27,6 @@ PAPER_ID_RE = re.compile(r"(P\d{3,5})", re.IGNORECASE)
 
 
 def discover_papers(papers_dir: Path) -> dict[str, Path]:
-    """Map paper_id -> pdf path. Skips duplicate-suffixed re-exports by
-    preferring the shortest filename per paper_id (the plain 'P0001.pdf'
-    form over 'P0001 02.02.30 02.02.30.pdf')."""
     found: dict[str, Path] = {}
     for pdf_path in papers_dir.rglob("*.pdf"):
         m = PAPER_ID_RE.search(pdf_path.stem)
@@ -56,7 +49,6 @@ def _classify(text: str) -> str:
     if re.match(r"^(Figure|Fig\.|FIGURE)\s*\d", t):
         return "figure_caption"
     if len(t) < 70 and not t.endswith((".", ",", ";")) and t == t.strip():
-        # short, unpunctuated line — plausible section heading
         letters = [c for c in t if c.isalpha()]
         if letters and sum(c.isupper() for c in letters) / len(letters) > 0.5:
             return "heading"
@@ -77,7 +69,7 @@ def parse_pdf(paper_id: str, pdf_path: Path, min_paragraph_chars: int) -> tuple[
         table_bboxes: list[tuple[float, float, float, float]] = []
         try:
             tables = page.find_tables()
-        except Exception as exc:  # pragma: no cover — some pages have no tables
+        except Exception as exc:
             logger.debug("find_tables failed on %s page %d: %s", paper_id, page_num_1based, exc)
             tables = []
 
@@ -108,7 +100,7 @@ def parse_pdf(paper_id: str, pdf_path: Path, min_paragraph_chars: int) -> tuple[
                 order_index += 1
 
         blocks = page.get_text("blocks")
-        blocks.sort(key=lambda b: (round(b[1], 1), round(b[0], 1)))  # top-to-bottom, left-to-right
+        blocks.sort(key=lambda b: (round(b[1], 1), round(b[0], 1)))
 
         for b in blocks:
             x0, y0, x1, y1, text = b[0], b[1], b[2], b[3], b[4]

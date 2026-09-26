@@ -1,10 +1,8 @@
-"""Per-paper lexical (BM25) index — plan §4.4, §6.3.
+"""Build an in-memory BM25 index for each paper and its supporting files.
 
-Retrieval is deliberately restricted to one paper (and its SI) at a time, so
-the index is cheap to build on demand rather than persisted globally. Dense
-retrieval is a pluggable extension point (see `DenseIndex` stub below) —
-plan §6.3 names SentenceTransformers + FAISS but neither is required for the
-pipeline to run end-to-end.
+The index is built on demand because retrieval is restricted to one paper at
+a time. `DenseIndex` defines an optional interface for another retrieval
+backend without adding dependencies to the default pipeline.
 """
 from __future__ import annotations
 
@@ -35,13 +33,6 @@ class BM25Index:
 
 
 class DenseIndex:
-    """Placeholder for a SentenceTransformers + FAISS dense index (plan §6.3).
-
-    Not wired up in this scaffold — BM25 + alias matching already gives
-    reasonable recall for a pilot. Swap in here without touching callers:
-    `retrieve_evidence.py` only calls `.query(text, top_k)`.
-    """
-
     def __init__(self, units: list[dict]):
         self.units = units
 

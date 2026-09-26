@@ -1,4 +1,4 @@
-"""CLI orchestrator — runs pipeline stages in order (plan §6.1, §12).
+"""Run the data-extraction stages in order from the command line.
 
 Each stage is deterministic Python that reads a versioned JSONL artifact and
 writes the next one; this script just calls them in sequence with a shared
@@ -21,7 +21,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 STAGES = [
-    # (name, module, needs_llm_flags, accepts_paper_ids)
     ("parse", "src.parse_documents", False, True),
     ("screen", "src.screen_compounds", True, True),
     ("registry", "src.build_registry", True, True),

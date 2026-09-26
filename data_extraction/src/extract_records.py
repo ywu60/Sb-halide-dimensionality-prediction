@@ -1,8 +1,7 @@
-"""Stage: structured cation extraction + dimensionality reasoning + record
-assembly — plan §4.6, §4.7, §4.8.
+"""Extract cation and dimensionality fields and assemble compound records.
 
-Synthesis is passed through verbatim from its dossier (plan §4.5.3, §4.6:
-"No separate structured synthesis fields are required") — no LLM call.
+Synthesis evidence is copied from its source-tracked dossier without a
+separate structured synthesis call.
 
 Writes data/records/07_extracted_records.jsonl (one CompoundRecord per compound).
 """
@@ -14,10 +13,10 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from schemas import CompoundRecord  # noqa: E402
-from src.llm_client import LLMClient  # noqa: E402
-from src.screen_compounds import select_sb_chunks  # noqa: E402
-from src.utils import get_logger, load_config, load_prompt, load_yaml, read_jsonl, write_jsonl  # noqa: E402
+from schemas import CompoundRecord
+from src.llm_client import LLMClient
+from src.screen_compounds import select_sb_chunks
+from src.utils import get_logger, load_config, load_prompt, load_yaml, read_jsonl, write_jsonl
 
 logger = get_logger("extract_records")
 PROMPT_VERSION = "v1"
@@ -228,7 +227,6 @@ def assemble_record(
     conn_dossier = dossiers.get("connectivity", {})
     syn_dossier = dossiers.get("synthesis", {})
 
-    # Enforce plan §10.1: Unknown required unless evidence_status == sufficient.
     dim_label = dim_data["sb_halide_dimensionality_llm"]
     dim_status = dim_data["dimensionality_evidence_status"]
     if dim_status != "sufficient" and dim_label != "Unknown":

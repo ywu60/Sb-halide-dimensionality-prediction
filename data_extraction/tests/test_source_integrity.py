@@ -30,7 +30,7 @@ def test_detects_hallucinated_source_id():
     records = [
         {
             "compound_id": "P0099_C1",
-            "cation_source": ["P0099_Main_Page9_Paragraph99"],  # does not exist
+            "cation_source": ["P0099_Main_Page9_Paragraph99"],
             "connectivity_source": [],
             "synthesis_source": [],
         }

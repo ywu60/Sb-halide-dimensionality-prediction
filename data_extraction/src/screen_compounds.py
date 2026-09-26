@@ -1,4 +1,4 @@
-"""Stage: eligibility screening — plan §4.1, prompts/01_eligibility.md.
+"""Screen papers for eligible Sb-halide compounds.
 
 Reads data/chunks/02_chunks.jsonl, filters to Sb-relevant evidence units per
 paper, and asks the LLM to enumerate every candidate material with an
@@ -13,9 +13,9 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from schemas import EligibilityDecision  # noqa: E402
-from src.llm_client import LLMClient  # noqa: E402
-from src.utils import get_logger, load_config, load_prompt, read_jsonl, write_jsonl  # noqa: E402
+from schemas import EligibilityDecision
+from src.llm_client import LLMClient
+from src.utils import get_logger, load_config, load_prompt, read_jsonl, write_jsonl
 
 logger = get_logger("screen_compounds")
 PROMPT_VERSION = "v1"
@@ -60,8 +60,6 @@ def select_sb_chunks(units: list[dict]) -> list[dict]:
 
 
 def _stub(payload: dict) -> dict:
-    # Minimal dry-run stand-in: mark nothing eligible so wiring can be tested
-    # without a model call. Real decisions require a live LLM call.
     return {"candidates": []}
 
 

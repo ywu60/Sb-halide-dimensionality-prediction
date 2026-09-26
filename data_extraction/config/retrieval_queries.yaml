@@ -1,5 +1,4 @@
-# Fixed query-concept vocabulary per target category — pipeline plan §4.4.
-# These seed lexical (BM25) retrieval and the LLM query-expansion step.
+# Fixed terms used to seed per-category BM25 retrieval.
 
 cation:
   - cation
@@ -53,7 +52,6 @@ synthesis:
   - compound label
   - compound formula
 
-# Counter-evidence phrases used by the verifier — plan §4.9.
 counter_evidence:
   - not considered a chemical bond
   - nonbonding

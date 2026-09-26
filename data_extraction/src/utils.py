@@ -21,7 +21,7 @@ try:
     from dotenv import load_dotenv
 
     load_dotenv(REPO_ROOT / ".env")
-except ImportError:  # pragma: no cover — dotenv is a thin convenience, not a hard dependency
+except ImportError:
     pass
 
 

@@ -1,4 +1,4 @@
-"""Stage: compound-conditioned semantic RAG — plan §4.4, §9.
+"""Retrieve compound-specific evidence from each paper.
 
 For every (paper, compound, category) this stage:
   1. builds a query bundle from the fixed vocabulary in retrieval_queries.yaml
@@ -19,10 +19,10 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from schemas import RetrievalHit  # noqa: E402
-from src.build_index import BM25Index  # noqa: E402
-from src.llm_client import LLMClient  # noqa: E402
-from src.utils import get_logger, load_config, load_prompt, load_yaml, read_jsonl, write_jsonl  # noqa: E402
+from schemas import RetrievalHit
+from src.build_index import BM25Index
+from src.llm_client import LLMClient
+from src.utils import get_logger, load_config, load_prompt, load_yaml, read_jsonl, write_jsonl
 
 logger = get_logger("retrieve_evidence")
 PROMPT_VERSION = "v1"
@@ -67,8 +67,6 @@ def gather_candidates(
     bm25_top_k: int,
     neighbor_window: int,
 ) -> dict[str, str]:
-    """Returns {source_id: retrieval_method} for the unioned candidate pool,
-    with per-source best score tracked separately for ranking."""
     scored: dict[str, float] = {}
     method: dict[str, str] = {}
 

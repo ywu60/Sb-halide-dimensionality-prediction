@@ -1,6 +1,6 @@
 """Provider wrapper for structured, source-grounded LLM calls.
 
-Design principles (plan §6.1, §8.1):
+Design principles:
   - every call is logged with model id, prompt version, and timestamp;
   - low temperature, explicit JSON schema, bounded retry on invalid JSON;
   - responses are cached on (model, prompt_version, input hash) so repeated
@@ -26,29 +26,15 @@ logger = get_logger("llm_client")
 
 CACHE_DIR = REPO_ROOT / "data" / ".cache"
 
-# Control characters observed in structured-output responses standing in
-# for a punctuation/symbol character the model clearly intended (e.g.
-# gpt-4.1-mini has been seen emitting U+007F DEL in place of the middle dot
-# '·' used in solvate formulas like "[SbCl2(L)]·(0.5thf)", and "\x03bc" in
-# place of Greek mu 'μ' used in bridging-ligand notation like "(μ-I)").
-# Multi-character patterns are matched first (longest match wins) so "\x03bc"
-# is repaired to 'μ' rather than treating the lone \x03 as an unknown byte.
 _CONTROL_CHAR_REPAIRS = {
-    "\x03bc": "μ",  # observed truncated μ (Greek mu) escape
-    "\x7f": "·",    # DEL -> middle dot
+    "\x03bc": "μ",
+    "\x7f": "·",
 }
 _STRIP_CONTROL_CHARS = {chr(c) for c in list(range(0x00, 0x09)) + list(range(0x0B, 0x20))}
 _UNRECOVERABLE_MARKER = "[?]"
 
 
 def sanitize_text(value: str) -> tuple[str, bool]:
-    """Returns (cleaned_value, was_modified). Known bad patterns are
-    repaired to their almost-certain intended character. Any *other*
-    control character is replaced with a visible "[?]" marker rather than
-    silently deleted — losing a bridging-ligand symbol like 'μ' by deleting
-    it outright previously turned "(μ-I)" into "(-I)" with no trace that
-    anything was wrong. A human reviewer (or the automatic-flags check) can
-    then see exactly where to check the source PDF."""
     original = value
     for bad, good in sorted(_CONTROL_CHAR_REPAIRS.items(), key=lambda kv: -len(kv[0])):
         value = value.replace(bad, good)
@@ -58,8 +44,6 @@ def sanitize_text(value: str) -> tuple[str, bool]:
 
 
 def sanitize_json(obj: Any, path: str = "$") -> Any:
-    """Recursively sanitizes string values in a parsed JSON structure,
-    logging every field that had to be repaired so it stays auditable."""
     if isinstance(obj, str):
         cleaned, changed = sanitize_text(obj)
         if changed:
@@ -102,7 +86,7 @@ class LLMClient:
             raise NotImplementedError(f"provider '{provider}' is not wired yet")
         try:
             from openai import OpenAI
-        except ImportError as exc:  # pragma: no cover
+        except ImportError as exc:
             raise LLMCallError(
                 "openai package is required for live calls: pip install openai"
             ) from exc
@@ -131,10 +115,6 @@ class LLMClient:
         max_retries: int = 3,
         stub_fn: Optional[Callable[[dict], dict]] = None,
     ) -> LLMResult:
-        """Run one structured call. `user_payload` follows the call contract
-        in plan §8.1 (task, paper_id, compound_id, aliases, instructions,
-        evidence_units, output_schema)."""
-
         if self.dry_run:
             if stub_fn is None:
                 raise LLMCallError(f"dry_run call for task '{task}' requires a stub_fn")
@@ -198,7 +178,7 @@ class LLMClient:
                     cached=False,
                     raw_usage=usage.model_dump() if usage else None,
                 )
-            except Exception as exc:  # noqa: BLE001 — bounded retry, then raise
+            except Exception as exc:
                 last_err = exc
                 logger.warning("task=%s attempt=%d/%d failed: %s", task, attempt, max_retries, exc)
         raise LLMCallError(f"task '{task}' failed after {max_retries} attempts: {last_err}")

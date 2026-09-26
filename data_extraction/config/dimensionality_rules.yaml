@@ -1,4 +1,4 @@
-# Dimensionality definition and exclusions — pipeline plan §4.7. Injected
+# Dimensionality definitions and exclusions. Injected
 # verbatim into the reasoning prompt so the rule text has a single source of
 # truth shared between the prompt and any deterministic post-hoc checks.
 

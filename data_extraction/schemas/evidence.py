@@ -1,4 +1,4 @@
-"""Retrieval and evidence-dossier schemas — pipeline plan §4.4-4.5."""
+"""Schemas for retrieval results and evidence dossiers."""
 from __future__ import annotations
 
 from typing import Literal, Optional
@@ -9,8 +9,6 @@ TargetCategory = Literal["cation", "connectivity", "synthesis"]
 
 
 class RetrievalHit(BaseModel):
-    """One retrieved candidate for one (paper, compound, category) — 05_retrieval_hits.jsonl."""
-
     paper_id: str
     compound_id: str
     target_category: TargetCategory
@@ -24,8 +22,6 @@ class RetrievalHit(BaseModel):
 
 
 class EvidenceDossier(BaseModel):
-    """Consolidated, source-tracked evidence text — 06_evidence_dossiers.jsonl."""
-
     paper_id: str
     compound_id: str
     target_category: TargetCategory

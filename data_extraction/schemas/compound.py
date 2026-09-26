@@ -1,4 +1,4 @@
-"""Eligibility and compound-registry schemas — pipeline plan §4.1, §4.3."""
+"""Schemas for paper eligibility and the compound registry."""
 from __future__ import annotations
 
 from typing import Literal, Optional
@@ -7,8 +7,6 @@ from pydantic import BaseModel, Field
 
 
 class EligibilityDecision(BaseModel):
-    """One row per candidate material — 03_eligibility.jsonl."""
-
     paper_id: str
     candidate_label: str = Field(..., description="Label/name/formula as it appears in the paper")
     is_eligible: bool
@@ -29,8 +27,6 @@ class EligibilityDecision(BaseModel):
 
 
 class CompoundRegistryEntry(BaseModel):
-    """One row per eligible compound — 04_compound_registry.jsonl."""
-
     paper_id: str
     compound_id: str = Field(..., description="Stable id, e.g. P0001_C1")
     labels_in_paper: list[str] = Field(default_factory=list)

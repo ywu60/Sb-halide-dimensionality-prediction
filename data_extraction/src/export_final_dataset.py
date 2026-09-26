@@ -17,11 +17,10 @@ from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from src.utils import get_logger, load_config, read_jsonl  # noqa: E402
+from src.utils import get_logger, load_config, read_jsonl
 
 logger = get_logger("export_final_dataset")
 
-# (source field, output field, width, wrap)
 FINAL_COLUMNS: list[tuple[str, str, int, bool]] = [
     ("paper_id", "paper_id", 10, False),
     ("compound_id", "compound_id", 14, False),
@@ -62,7 +61,6 @@ def _joinlist(value):
 
 
 def build_final_records(records: list[dict]) -> list[dict]:
-    """Select, rename, and sort fields for the two final output formats."""
     selected = [
         {output: record.get(source) for source, output, _, _ in FINAL_COLUMNS}
         for record in records
@@ -71,7 +69,6 @@ def build_final_records(records: list[dict]) -> list[dict]:
 
 
 def build_final_dataframe(records: list[dict]) -> pd.DataFrame:
-    """Flatten list fields from final records for convenient Excel viewing."""
     df = pd.DataFrame(build_final_records(records))
     for column in df.columns:
         df[column] = df[column].apply(_joinlist)

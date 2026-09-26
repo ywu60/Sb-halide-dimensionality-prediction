@@ -1,25 +1,14 @@
-"""Deterministic checks — plan §10.1. No LLM involved; these run over any
-batch of assembled records and return a list of human-readable violations.
-"""
+"""Run deterministic checks over assembled compound records."""
 from __future__ import annotations
 
 ALLOWED_DIMENSIONALITY = {"0D", "1D", "2D", "3D", "Unknown"}
 HALIDE_SYMBOLS = ("F", "Cl", "Br", "I")
-UNRECOVERABLE_MARKER = "[?]"  # must match src.llm_client._UNRECOVERABLE_MARKER
+UNRECOVERABLE_MARKER = "[?]"
 
-# Characters beyond plain ASCII that are legitimately common in chemistry
-# text and should not be flagged as suspicious — includes the typographic
-# minus U+2212 and superscript charge notation (e.g. "[SbCl6]3−", "SbCl6⁻").
 _ALLOWED_EXTRA_CHARS = set("·°±→↔≡′″ÅåΔδαβγμωΩ–—''\"\"…‹›⋯×−⁻⁺⁰¹²³⁴⁵⁶⁷⁸⁹")
 
 
 def scan_text_sanity(value: str) -> list[str]:
-    """Returns the list of unexpected characters found in `value` — control
-    characters, replacement characters, or anything outside plain ASCII and
-    the small set of chemistry-typical symbols above. Anything returned here
-    is worth a human glancing at the source PDF for (§10.1: verification
-    should catch garbled/non-English characters and cells that don't make
-    sense)."""
     bad = []
     for ch in value:
         if ch in ("\n", "\t"):
@@ -30,7 +19,6 @@ def scan_text_sanity(value: str) -> list[str]:
         if ch in _ALLOWED_EXTRA_CHARS:
             continue
         bad.append(ch)
-    # de-dup while preserving order
     seen = []
     for ch in bad:
         if ch not in seen:
@@ -48,9 +36,6 @@ def check_record_text_sanity(record: dict, fields: list[str]) -> list[str]:
 
 
 def check_halide_consistency(record: dict) -> list[str]:
-    """Cross-checks halides_bonded_to_sb against the halogens actually
-    present in compound_formula_reported — the kind of same-row consistency
-    check plan §10.2's review workbook is meant to make easy to catch."""
     formula = record.get("compound_formula_reported") or ""
     halides_bonded = set(record.get("halides_bonded_to_sb") or [])
     present_in_formula = {h for h in HALIDE_SYMBOLS if h in formula}
@@ -86,7 +71,6 @@ def _text_sanity_flags_for(label: str, value: str) -> list[str]:
 
 
 def compute_automatic_flags(record: dict) -> list[str]:
-    """All deterministic sanity/consistency flags for one compound record."""
     text_fields = [
         "compound_name_reported",
         "compound_formula_reported",
@@ -134,7 +118,7 @@ def check_dimensionality_rules(records: list[dict]) -> list[str]:
         if status != "sufficient" and label not in (None, "Unknown"):
             violations.append(
                 f"{r['compound_id']}: dimensionality '{label}' with evidence_status '{status}' "
-                "must be 'Unknown' (plan §10.1)"
+                "must be 'Unknown'"
             )
     return violations
 
@@ -150,4 +134,3 @@ def check_cation_formula_status(records: list[dict]) -> list[str]:
                     f"{r['compound_id']}: cation_formula_explicit must be null when status is 'not_reported'"
                 )
     return violations
-

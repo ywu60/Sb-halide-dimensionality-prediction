@@ -1,4 +1,4 @@
-"""Document and evidence-unit schemas — pipeline plan §4.1-4.2."""
+"""Schemas for parsed documents and page-level evidence units."""
 from __future__ import annotations
 
 from typing import Literal, Optional
@@ -7,8 +7,6 @@ from pydantic import BaseModel, Field
 
 
 class PaperMeta(BaseModel):
-    """One row per paper — 01_documents.jsonl."""
-
     paper_id: str = Field(..., description="Stable paper identifier, e.g. P0001")
     doi: Optional[str] = None
     title: Optional[str] = None
@@ -21,12 +19,6 @@ class PaperMeta(BaseModel):
 
 
 class DocumentUnit(BaseModel):
-    """A single layout-preserving evidence unit — 02_chunks.jsonl.
-
-    Source IDs are stable and human-auditable, e.g.
-    'P0001_Main_Page5_Paragraph3' or 'P0001_SI_Page12_Table2_Row4'.
-    """
-
     source_id: str
     paper_id: str
     doc_type: Literal["main", "si"] = "main"

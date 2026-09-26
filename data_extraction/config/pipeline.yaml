@@ -1,13 +1,12 @@
 # Pipeline configuration. Relative paths are resolved from data_extraction/.
 
 paths:
-  # Put input PDFs here, directly or in nested subfolders.
   papers_dir: "data/papers"
   data_dir: "data"
 
 llm:
   provider: openai
-  model: gpt-4.1-mini          # cheap/fast default for structuring & reasoning stages
+  model: gpt-4.1-mini
   eligibility_model: gpt-4.1-mini
   registry_model: gpt-4.1-mini
   relevance_model: gpt-4.1-mini
@@ -22,13 +21,13 @@ llm:
 
 retrieval:
   bm25_top_k: 40
-  dense_top_k: 40             # unused until a dense encoder is configured (see build_index.py)
-  neighbor_window: 1          # include +/- N neighboring evidence units
-  rerank_top_k: 12            # passages actually sent to the dossier model, per category
-  classification_pool_cap: 30 # max candidates sent to the LLM relevance classifier, per category
+  dense_top_k: 40
+  neighbor_window: 1
+  rerank_top_k: 12
+  classification_pool_cap: 30
 
 verification:
-  max_retrieval_cycles: 2      # bounded targeted re-retrieval, plan §4.9 / §9
+  max_retrieval_cycles: 2
 
 parsing:
-  min_paragraph_chars: 20      # drop near-empty layout fragments (page numbers, running heads)
+  min_paragraph_chars: 20

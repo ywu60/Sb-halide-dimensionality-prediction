@@ -44,7 +44,7 @@ def test_scan_text_sanity_flags_lozenge_but_not_middle_dot():
 def test_halide_consistency_flags_mismatch():
     record = {"compound_formula_reported": "[SbCl2(L)]", "halides_bonded_to_sb": ["Br"]}
     flags = check_halide_consistency(record)
-    assert len(flags) == 2  # Cl missing, Br extra
+    assert len(flags) == 2
     assert any("Cl" in f for f in flags)
     assert any("Br" in f for f in flags)
 

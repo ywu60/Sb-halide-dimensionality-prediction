@@ -1,4 +1,4 @@
-"""Stage: compound registry and alias resolution — plan §4.3, prompts/02_compound_registry.md.
+"""Build the compound registry and resolve aliases within each paper.
 
 Reads eligible candidates from 03_eligibility.jsonl plus the paper's
 Sb-relevant chunks, and asks the LLM to group labels/names/formulas/aliases
@@ -14,10 +14,10 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from schemas import CompoundRegistryEntry  # noqa: E402
-from src.llm_client import LLMClient  # noqa: E402
-from src.screen_compounds import select_sb_chunks  # noqa: E402
-from src.utils import get_logger, load_config, load_prompt, read_jsonl, write_jsonl  # noqa: E402
+from schemas import CompoundRegistryEntry
+from src.llm_client import LLMClient
+from src.screen_compounds import select_sb_chunks
+from src.utils import get_logger, load_config, load_prompt, read_jsonl, write_jsonl
 
 logger = get_logger("build_registry")
 PROMPT_VERSION = "v1"
@@ -83,7 +83,6 @@ def build_paper_registry(
     )
 
     raw_entries = result.data.get("compounds", [])
-    # deterministic ordering: by earliest order_index among supporting sources
     def first_seen(entry: dict) -> int:
         idxs = [order_by_source[sid] for sid in entry.get("supporting_source_ids", []) if sid in order_by_source]
         return min(idxs) if idxs else 10**9
