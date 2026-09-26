@@ -74,6 +74,11 @@ source IDs. The pipeline produces one record per compound, including reported
 formula and cation information, Sb-halide connectivity, dimensionality and
 reasoning, synthesis evidence, verification results, and automatic flags.
 
+The output should be treated as raw, machine-extracted data rather than a fully
+curated dataset. Users should review and correct the extracted fields and
+supporting evidence against the original papers before using the data for
+analysis.
+
 To run the extraction from the repository root:
 
 1. Enter the extraction directory and create the local environment file:
