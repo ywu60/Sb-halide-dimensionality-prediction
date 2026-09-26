@@ -17,8 +17,9 @@ also evaluate GPT models on the same held-out task using zero-shot, few-shot,
 and all-shot prompting.
 
 To understand the predictions, we calculate permutation and SHAP importance for
-the ML models and ask the GPT models to rank the same chemical and compositional
-features. Finally, we apply the best-performing ML and GPT configurations to ten
+the ML models and ask the GPT models to rank a set of chemical and compositional
+features to understand feature importance for each LLM. Finally, we apply the
+best-performing ML and GPT configurations to ten
 newly synthesized Sb-halide compounds.
 
 ## Repository layout
