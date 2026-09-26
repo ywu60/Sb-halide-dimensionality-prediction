@@ -59,8 +59,8 @@ Set `OPENAI_API_KEY` before live data-extraction or LLM-prediction runs.
 
 ## Literature data extraction
 
-The `data_extraction/` package builds the literature-derived dataset consumed by
-the prediction workflows. It combines deterministic PDF parsing, BM25 retrieval,
+The `data_extraction/` folder contains the code that builds the literature-derived
+dataset used by the prediction workflows. It combines deterministic PDF parsing, BM25 retrieval,
 validation, source citation tracking, and final export with schema-constrained LLM
 stages for scientific interpretation.
 
