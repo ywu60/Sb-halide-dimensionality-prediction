@@ -74,11 +74,42 @@ source IDs. The pipeline produces one record per compound, including reported
 formula and cation information, Sb-halide connectivity, dimensionality and
 reasoning, synthesis evidence, verification results, and automatic flags.
 
-From the repository root, run the extraction pipeline for a selected set of papers:
+To run the extraction from the repository root:
+
+1. Enter the extraction directory and create the local environment file:
+
+   ```bash
+   cd data_extraction
+   cp .env.example .env
+   ```
+
+2. Open `data_extraction/.env` and replace the placeholder with your OpenAI API
+   key:
+
+   ```dotenv
+   OPENAI_API_KEY="sk-..."
+   ```
+
+3. Create the input directory and copy the article PDFs into it:
+
+   ```bash
+   mkdir -p data/papers
+   cp /path/to/your/pdfs/*.pdf data/papers/
+   ```
+
+   PDF filenames must contain their paper IDs, for example `P0001.pdf`. Nested
+   directories under `data/papers/` are also supported.
+
+4. Run the complete pipeline for selected papers:
+
+   ```bash
+   python -m src.run_pipeline all --paper-ids P0001,P0002
+   ```
+
+To process every PDF under `data/papers/`, run:
 
 ```bash
-cd data_extraction
-python -m src.run_pipeline all --paper-ids P0001,P0002
+python -m src.run_pipeline all
 ```
 
 The final stage writes both formats directly:
@@ -87,6 +118,10 @@ The final stage writes both formats directly:
 data/output/final_dataset.xlsx
 data/output/final_dataset.json
 ```
+
+Intermediate JSONL artifacts and cached LLM responses are also created under
+`data/`. Pipeline settings, model assignments, retrieval limits, and input/output
+paths are defined in `config/pipeline.yaml`.
 
 ## ML workflow
 
