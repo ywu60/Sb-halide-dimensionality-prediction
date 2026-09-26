@@ -4,6 +4,11 @@ numpy
 openai>=3.11,<4
 openpyxl
 pandas
+pymupdf>=1.24
+pydantic>=2.0
+pyyaml
+python-dotenv
+rank_bm25
 rdkit
 # The published train/test predictions and grouped-CV folds were generated with 1.7.2.
 # Newer releases can produce different StratifiedGroupKFold assignments with the same seed.
@@ -15,3 +20,6 @@ tiktoken
 # Optional: required only when generating SMI-TED embeddings.
 huggingface-hub
 torch
+
+# Development/testing for the literature extraction framework.
+pytest

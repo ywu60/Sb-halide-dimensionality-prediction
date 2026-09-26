@@ -5,34 +5,38 @@ Research code for binary prediction of inorganic Sb-halide connectivity:
 
 ## Project overview
 
-This project studies the structural dimensionality of organic–inorganic antimony-halide compounds. We first
-identified relevant compounds across a broad collection of chemistry papers and extracted their compositions,
-organic cations, structural information, and experimentally reported dimensionalities. These literature data
-form the labeled dataset used throughout the project.
+This project studies the structural dimensionality of organic–inorganic
+antimony-halide compounds. We first identify relevant compounds in chemistry
+papers and extract their compositions, organic cations, structural information,
+and reported dimensionalities. These literature data form the labeled dataset
+used throughout the project.
 
-We then trained two conventional machine-learning classifiers—Random Forest and support vector machine
-(SVM)—to predict whether the inorganic Sb-halide connectivity is zero-dimensional (0D) or extended (non-0D,
-including 1D, 2D, and 3D structures). To evaluate the capabilities of current general-purpose AI systems on the
-same task, we tested several GPT models using zero-shot, few-shot, and all-shot prompting and compared
-their held-out performance with the conventional ML baselines.
+We train Random Forest and support vector machine (SVM) classifiers to predict
+whether inorganic Sb-halide connectivity is zero-dimensional or extended. We
+also evaluate GPT models on the same held-out task using zero-shot, few-shot,
+and all-shot prompting.
 
-To understand the basis of these predictions, we analyzed the trained ML models using permutation importance and separately asked the GPT models to rank a set of chemical and compositional features. We aim to see how feature importance differs across these models.
+To understand the predictions, we calculate permutation and SHAP importance for
+the ML models and ask the GPT models to rank the same chemical and compositional
+features. Finally, we apply the best-performing ML and GPT configurations to ten
+newly synthesized Sb-halide compounds.
 
-Finally, we synthesized ten new Sb-halide compounds and applied the best-performing ML and GPT configurations to
-predict their dimensionality. This provides an external application of the models beyond the literature-derived
-training and test dataset.
+## Repository layout
 
+The directories follow the research workflow from literature extraction to
+model evaluation and prediction:
 
-## Layout
-
+- `data_extraction/`: PDF-to-dataset pipeline with evidence-linked Excel and JSON export.
+- `data/`: prepared modeling datasets used by the downstream workflows.
 - `ml_training/`: feature engineering, leakage-controlled splitting, Random Forest, and SVM training.
-- `model_prediction/`: feature generation and full-data ML prediction for new compounds.
 - `feature_importance/`: permutation and SHAP importance for the selected ML model.
-- `llm_prediction/`: held-out LLM evaluation and full-data in-context prediction for new compounds.
-- `llm_feature_importance/`: final fixed-category paired experiment, with and without labeled examples.
-- `evaluation/`: ML/LLM comparison and confusion-matrix plots.
+- `llm_prediction/`: held-out LLM evaluation and in-context prediction for new compounds.
+- `llm_feature_importance/`: paired feature-ranking experiments with and without labeled examples.
+- `model_prediction/`: feature generation and full-data ML prediction for new compounds.
+- `evaluation/`: ML/LLM comparisons and confusion-matrix plots.
 - `common/`: shared plotting utilities.
-
+- `results_ml/`: generated ML metrics, predictions, and fitted models.
+- `figures/`: generated publication and diagnostic figures.
 
 ## Installation
 
@@ -42,12 +46,46 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-`scikit-learn==1.7.2` is pinned because it reproduces the published grouped-CV folds and predictions with
-`random_state=42`; newer scikit-learn versions can produce different grouped folds despite using the same seed.
+`scikit-learn==1.7.2` is pinned because it reproduces the published grouped-CV
+folds and predictions with `random_state=42`; newer versions can produce
+different grouped folds despite using the same seed.
 
-SMI-TED itself must also be available when creating embeddings. Supply its `smi_ted_light` directory with
-`--smi-ted-dir`; the training-data preparation script can download the required files from Hugging Face if the
-argument is omitted.
+SMI-TED must be available when creating molecular embeddings. Supply its
+`smi_ted_light` directory with `--smi-ted-dir`; the preparation script can
+download the required files from Hugging Face if the argument is omitted.
+
+Set `OPENAI_API_KEY` before live data-extraction or LLM-prediction runs.
+
+## Literature data extraction
+
+The `data_extraction/` package builds the literature-derived dataset consumed by
+the prediction workflows. It combines deterministic PDF parsing, BM25 retrieval,
+validation, source citation tracking, and final export with schema-constrained LLM
+stages for scientific interpretation.
+
+```text
+PDFs -> parse -> screen -> compound registry -> retrieve -> dossiers
+     -> structured extraction -> verification -> final Excel + JSON datasets
+```
+
+Each extracted compound retains its supporting evidence text and page-level
+source IDs. The pipeline produces one record per compound, including reported
+formula and cation information, Sb-halide connectivity, dimensionality and
+reasoning, synthesis evidence, verification results, and automatic flags.
+
+From the repository root, run the extraction pipeline for a selected set of papers:
+
+```bash
+cd data_extraction
+python -m src.run_pipeline all --paper-ids P0001,P0002
+```
+
+The final stage writes both formats directly:
+
+```text
+data/output/final_dataset.xlsx
+data/output/final_dataset.json
+```
 
 ## ML workflow
 
@@ -85,8 +123,6 @@ python -m model_prediction.retrain_and_predict \
 
 ## LLM prediction
 
-Set `OPENAI_API_KEY`, then run:
-
 ```bash
 python -m llm_prediction.evaluate_llms \
   --data data/prepared_data.xlsx \
@@ -100,9 +136,9 @@ python -m llm_prediction.predict_new_compounds \
 
 ## LLM feature importance
 
-The final implementation uses seven fixed categories, four LLMs, 30 controlled presentation orders, and paired
-conditions with and without the 321 training examples. 
-
+The final experiment uses seven fixed feature categories, four LLMs, 30
+controlled presentation orders, and paired conditions with and without the 321
+training examples.
 
 ```bash
 python -m unittest -v llm_feature_importance.test_stage2

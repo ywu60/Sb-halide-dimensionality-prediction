@@ -1,0 +1,35 @@
+# Pipeline configuration. Paths point at the original corpus locations —
+# PDFs are read in place, never copied, to avoid duplicating large files.
+
+paths:
+  # Root containing the "Sb 1-100", "Sb101-200", ... subfolders.
+  papers_dir: "../../analysis 3/Antimony papers"
+  data_dir: "data"
+
+llm:
+  provider: openai
+  model: gpt-4.1-mini          # cheap/fast default for structuring & reasoning stages
+  eligibility_model: gpt-4.1-mini
+  registry_model: gpt-4.1-mini
+  relevance_model: gpt-4.1-mini
+  dossier_model: gpt-4.1
+  cation_model: gpt-4.1
+  dimensionality_model: gpt-4.1
+  verification_model: gpt-4.1
+  temperature: 0.0
+  max_retries: 3
+  timeout_s: 120
+  prompt_version: "v1"
+
+retrieval:
+  bm25_top_k: 40
+  dense_top_k: 40             # unused until a dense encoder is configured (see build_index.py)
+  neighbor_window: 1          # include +/- N neighboring evidence units
+  rerank_top_k: 12            # passages actually sent to the dossier model, per category
+  classification_pool_cap: 30 # max candidates sent to the LLM relevance classifier, per category
+
+verification:
+  max_retrieval_cycles: 2      # bounded targeted re-retrieval, plan §4.9 / §9
+
+parsing:
+  min_paragraph_chars: 20      # drop near-empty layout fragments (page numbers, running heads)

@@ -1,0 +1,30 @@
+# Dimensionality definition and exclusions — pipeline plan §4.7. Injected
+# verbatim into the reasoning prompt so the rule text has a single source of
+# truth shared between the prompt and any deterministic post-hoc checks.
+
+allowed_labels: ["0D", "1D", "2D", "3D", "Unknown"]
+allowed_evidence_status: ["sufficient", "insufficient", "conflicting"]
+
+definitions:
+  0D: "Direct Sb-halide connectivity terminates within a monomer, dimer, or finite cluster."
+  1D: "The directly bonded network extends infinitely in one independent crystallographic direction."
+  2D: "The directly bonded network extends infinitely in two independent directions."
+  3D: "The directly bonded network extends infinitely in three independent directions."
+  Unknown: "The available evidence is insufficient or conflicting."
+
+excluded_interactions:
+  - hydrogen bonds
+  - organic packing
+  - halide-halide contacts
+  - Sb-N/O/S/P bonds
+  - proximity between separate inorganic units
+  - long Sb...halide contacts explicitly described as nonbonding
+  - pseudo-chains that do not contain direct Sb-halide bonds
+
+reasoning_procedure:
+  - Identify the finite Sb-halide building unit described in the evidence.
+  - Identify every direct Sb-X-Sb connection, where X is a halide.
+  - Determine whether those direct bonds extend beyond a finite unit.
+  - Count the number of independent periodic directions created by direct Sb-halide bonding.
+  - Exclude all explicitly nonbonding, packing, hydrogen-bonding, and halide-halide interactions.
+  - Return Unknown if the text does not establish bonded periodicity.

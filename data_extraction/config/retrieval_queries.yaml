@@ -1,0 +1,65 @@
+# Fixed query-concept vocabulary per target category — pipeline plan §4.4.
+# These seed lexical (BM25) retrieval and the LLM query-expansion step.
+
+cation:
+  - cation
+  - organic cation
+  - protonated amine
+  - ammonium
+  - abbreviation
+  - molecular formula
+  - empirical formula
+  - organic component
+  - counter-cation
+
+connectivity:
+  - crystal structure
+  - inorganic unit
+  - SbXn
+  - coordination
+  - isolated
+  - discrete
+  - monomer
+  - dimer
+  - cluster
+  - chain
+  - layer
+  - framework
+  - corner-sharing
+  - edge-sharing
+  - face-sharing
+  - bridging halide
+  - Sb-X-Sb
+  - secondary contact
+  - long contact
+  - pseudo-chain
+  - nonbonding
+  - not a chemical bond
+  - crystallographic direction
+
+synthesis:
+  - synthesis
+  - preparation
+  - experimental
+  - crystallization
+  - reaction
+  - yield
+  - heated
+  - cooled
+  - evaporated
+  - filtered
+  - washed
+  - dried
+  - compound label
+  - compound formula
+
+# Counter-evidence phrases used by the verifier — plan §4.9.
+counter_evidence:
+  - not considered a chemical bond
+  - nonbonding
+  - secondary contact
+  - weak contact
+  - discrete anion
+  - isolated unit
+  - pseudo-chain
+  - packing interaction
