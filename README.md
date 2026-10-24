@@ -7,11 +7,10 @@ Research code for binary prediction of inorganic Sb-halide connectivity:
 
 This project studies the structural dimensionality of organic–inorganic
 antimony-halide compounds. We first identify relevant compounds in chemistry
-papers and extract their compositions, organic cations, structural information,
-and reported dimensionalities. These literature data form the labeled dataset
+papers and extract their compositions, organic cations, structural information, and reported dimensionalities. These literature data form the labeled dataset
 used throughout the project.
 
-We train Random Forest and support vector machine (SVM) classifiers to predict
+We train Random Forest (RF) and support vector machine (SVM) classifiers to predict
 whether inorganic Sb-halide connectivity is zero-dimensional or extended. We
 also evaluate GPT models on the same held-out task using zero-shot, few-shot,
 and all-shot prompting.
