@@ -257,7 +257,7 @@ def plot_prompting_heatmap(df: pd.DataFrame, ml_baseline: float, out: Path):
     ax.set_yticks(range(len(rows)))
     ax.set_yticklabels([f"{model}  —  {'IUPAC name' if rep == 'name' else 'SMILES'}" for model, rep in rows], fontsize=11)
     ax.set_title("Prompting comparison (test macro-F1)", fontsize=15, pad=28, loc="left")
-    ax.set_xlabel("Orange outline: exceeds best ML macro-F1 (0.683)", fontsize=11, labelpad=13)
+    ax.set_xlabel(f"Orange outline: exceeds best ML macro-F1 ({ml_baseline:.3f})", fontsize=11, labelpad=13)
     ax.xaxis.set_label_position("bottom")
     ax.grid(False)
     for spine in ax.spines.values():
@@ -273,6 +273,9 @@ def main():
     ap.add_argument("--llm-results", default="results_llm/llm_results.csv")
     ap.add_argument("--gpt6-astra-results", default="results_llm/gpt6_astra_prompting_summary.csv", help="Optional Astra macro-F1 summary to append to the baseline results")
     ap.add_argument("--figures", default="figures")
+    # Best ML test macro-F1 (RF, inorganic + SMI-TED PCA-80 in results_ml/ml_results.csv). A constant rather than
+    # read from results_ml/, which is not committed, so Figure 3 reproduces from the committed LLM results alone.
+    ap.add_argument("--ml-baseline", type=float, default=0.714, help="Best ML test macro-F1 for the dashed reference line")
     a = ap.parse_args()
     figures = Path(a.figures); figures.mkdir(parents=True, exist_ok=True)
 
@@ -287,7 +290,7 @@ def main():
         print(f"WARNING: {len(incomplete)} condition(s) have fewer than {df.n.max()} predictions and are not comparable:")
         print(incomplete[["model", "representation", "prompting", "n"]].to_string(index=False))
 
-    ml_baseline = 0.683
+    ml_baseline = a.ml_baseline
     ml_label = f"best ML\n{ml_baseline:.3f}"
 
     plot_grouped(df, ml_baseline, ml_label, figures / "llm_results_comparison.png")

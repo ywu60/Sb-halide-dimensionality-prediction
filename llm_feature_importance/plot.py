@@ -91,7 +91,7 @@ def plot_importance_heatmap(df: pd.DataFrame, output: Path) -> None:
     colorbar = fig.colorbar(image, ax=ax, fraction=0.04, pad=0.025)
     colorbar.set_label("Mean normalized Borda score", fontsize=17)
     colorbar.ax.tick_params(labelsize=15)
-    save(fig, output / "figure1_feature_importance_heatmap")
+    save(fig, output / "llm_feature_importance_heatmap")
 
 
 def plot_importance_ci(df: pd.DataFrame, output: Path) -> None:
@@ -125,7 +125,7 @@ def plot_importance_ci(df: pd.DataFrame, output: Path) -> None:
     ax.spines[["top", "right"]].set_visible(False)
     ax.legend(frameon=False, ncol=2, loc="lower right", fontsize=10)
     ax.set_title("Model-specific feature importance and uncertainty", loc="left", fontsize=14, pad=12)
-    save(fig, output / "figure2_model_feature_importance_ci")
+    save(fig, output / "llm_feature_importance_ci")
 
 
 def plot_stability(df: pd.DataFrame, output: Path) -> None:
@@ -148,7 +148,7 @@ def plot_stability(df: pd.DataFrame, output: Path) -> None:
     ax.grid(axis="y", color=GRID, linewidth=0.8, zorder=0)
     ax.spines[["top", "right"]].set_visible(False)
     ax.set_title("Within-model ranking stability", loc="left", fontsize=14, pad=12)
-    save(fig, output / "figure3_model_stability_kendall")
+    save(fig, output / "llm_self_consistency_kendall")
 
 
 def plot_intermodel_kendall(matrix: pd.DataFrame, output: Path) -> None:
@@ -172,7 +172,7 @@ def plot_intermodel_kendall(matrix: pd.DataFrame, output: Path) -> None:
     colorbar = fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
     colorbar.set_label("Kendall's τ", fontsize=10.5)
     ax.set_title("Inter-model agreement in final feature rankings", loc="left", fontsize=13, pad=12)
-    save(fig, output / "figureS1_intermodel_kendall_heatmap")
+    save(fig, output / "llm_intermodel_agreement_kendall")
 
 
 def main() -> None:

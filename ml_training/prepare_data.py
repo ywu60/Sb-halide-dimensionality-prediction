@@ -1,5 +1,8 @@
 """Feature engineering + a single grouped train/test split for the dataset.
 
+The split is read from --split-file (default data/train_test_split.csv, the published split) so the
+prepared data reproduces exactly; --new-split draws a fresh grouped split with --seed instead.
+
 --input "../merged_compound_cif_cation.xlsx" --output prepared_data.xlsx
 """
 import argparse, importlib, re, sys
@@ -151,16 +154,30 @@ def smi_ted_embeddings(smiles: pd.Series, local_dir: str | None, batch_size: int
     if not checkpoints: raise FileNotFoundError(f"No SMI-TED .pt checkpoint in {model_dir}")
     preferred = next((p for p in checkpoints if p.name == "smi_ted_light.pt"), checkpoints[0])
     model = load(folder=str(model_dir), ckpt_filename=preferred.name); blocks = []
+    # transformers>=5 silently ignores MolTranBertTokenizer._tokenize, so nearly every SMILES token maps to
+    # <unk> (= <pad> in SMI-TED) and distinct cations collapse onto identical embeddings. Fail loudly instead.
+    normalize = importlib.import_module("smi_ted_light.load").normalize_smiles
+    normalized = smiles.map(normalize)
+    for smi in normalized.dropna().unique():
+        ids = model.tokenizer(smi, add_special_tokens=True)["input_ids"]
+        if model.tokenizer.padding_idx in ids:
+            raise RuntimeError(f"SMI-TED tokenizer produced <pad>/<unk> tokens for {smi!r}: "
+                               f"{model.tokenizer.convert_ids_to_tokens(ids)}. Use transformers<5.")
     with torch.no_grad():
         for start in range(0, len(smiles), batch_size):
             z = model.encode(smiles.iloc[start:start + batch_size].reset_index(drop=True), return_torch=True)
             blocks.append(z.detach().cpu().numpy() if hasattr(z, "detach") else np.asarray(z))
     z = np.vstack(blocks)
+    n_smiles, n_vectors = normalized.nunique(), len(np.unique(z, axis=0))
+    if n_vectors < n_smiles:
+        raise RuntimeError(f"{n_smiles} distinct normalized SMILES gave only {n_vectors} distinct SMI-TED embeddings")
     return pd.DataFrame(z, columns=[f"smi_ted_{i:04d}" for i in range(z.shape[1])])
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--input", required=True); ap.add_argument("--output", default="prepared_data.xlsx")
-    ap.add_argument("--seed", type=int, default=42); ap.add_argument("--smi-ted-dir"); ap.add_argument("--smi-batch-size", type=int, default=64); ap.add_argument("--skip-smi-ted", action="store_true"); a = ap.parse_args()
+    ap.add_argument("--seed", type=int, default=42); ap.add_argument("--smi-ted-dir"); ap.add_argument("--smi-batch-size", type=int, default=64); ap.add_argument("--skip-smi-ted", action="store_true")
+    ap.add_argument("--split-file", default="data/train_test_split.csv", help="compound_id -> train/test assignment to reuse (the published split)")
+    ap.add_argument("--new-split", action="store_true", help="Draw a fresh grouped split with --seed instead of reading --split-file"); a = ap.parse_args()
     df = pd.read_excel(a.input)
     df = df.rename(columns={"Paper ID": "paper_id", "Water_count": "water_count"})
     required = {"compound_id", "paper_id", "formula_normalized", "water_count", "Sb_halide", "sb_oxidation_state", "dimensionality", "organic_component", "canonical_cation_smiles"}
@@ -174,8 +191,23 @@ def main():
 
     df["target_non0D"] = (df.dimensionality != "0D").astype(int)
     groups = connected_groups(df)
-    tr, te = grouped_holdout(df.target_non0D.to_numpy(), groups, seed=a.seed)
-    df["connected_group"] = groups; df["split"] = "train"; df.loc[te, "split"] = "test"
+    df["connected_group"] = groups
+    if a.new_split:
+        tr, te = grouped_holdout(df.target_non0D.to_numpy(), groups, seed=a.seed)
+        df["split"] = "train"; df.loc[te, "split"] = "test"
+    else:
+        # The published split was drawn when the input still had 401 compounds; redrawing it on the current input
+        # gives a different (equally leak-free) split, so reuse the stored assignment instead.
+        assigned = pd.read_csv(a.split_file).set_index("compound_id").split
+        unassigned, unknown = set(df.compound_id) - set(assigned.index), set(assigned.index) - set(df.compound_id)
+        if unassigned or unknown:
+            raise ValueError(f"{a.split_file} does not match the input: {len(unassigned)} compounds without an assignment "
+                             f"{sorted(unassigned)[:5]}, {len(unknown)} assigned compounds not in the input {sorted(unknown)[:5]}. "
+                             "Use --new-split to draw a fresh split.")
+        df["split"] = df.compound_id.map(assigned)
+        if not df.split.isin(["train", "test"]).all(): raise ValueError(f"{a.split_file} has split values other than train/test")
+        tr, te = np.flatnonzero(df.split.eq("train")), np.flatnonzero(df.split.eq("test"))
+        print(f"Using the train/test split from {a.split_file}")
     result = pd.concat([df, common_features(df)], axis=1)
     if not a.skip_smi_ted: result = pd.concat([result, smi_ted_embeddings(df.canonical_cation_smiles, a.smi_ted_dir, a.smi_batch_size)], axis=1)
 

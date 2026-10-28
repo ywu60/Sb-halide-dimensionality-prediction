@@ -1,6 +1,8 @@
-"""SHAP feature importance for the best ML model (ranked by test_macro_f1 in ml_results.csv).
+"""SHAP feature importance for the best ML model (ranked by test_macro_f1 in ml_results.csv),
+or for the best configuration of one model family with --model (e.g. --model svm).
 
  --data prepared_data.xlsx --results results_ml/ml_results.csv
+ --model svm --out-csv results_ml/svm/shap_importance.csv --figures figures/svm
 
 Writes:
   results_ml/shap_importance.csv
@@ -22,8 +24,13 @@ from feature_importance import permutation_importance as perm_mod
 
 
 def shap_values_for_non0d(pipe, X_background: np.ndarray, X_explain: np.ndarray, names: list[str]):
-    
+    """X_background / X_explain are the ColumnTransformer output; any steps between it and the classifier
+    (the SVM's RobustScaler) are applied here, so the explainer sees exactly what the classifier was fit on.
+    RobustScaler is element-wise, so feature names and order are unchanged."""
     model = pipe.named_steps["model"]
+    between = pipe[1:-1]
+    if len(between):
+        X_background, X_explain = between.transform(X_background), between.transform(X_explain)
     if isinstance(model, RandomForestClassifier):
         explainer = shap.TreeExplainer(model)
         values = explainer.shap_values(X_explain, check_additivity=False)
@@ -39,7 +46,7 @@ def shap_values_for_non0d(pipe, X_background: np.ndarray, X_explain: np.ndarray,
     return np.asarray(explainer(X_explain, max_evals=2 * len(names) + 1).values), "SVM decision-function margin"
 
 
-def plot_bar(imp: pd.DataFrame, out_path: Path):
+def plot_bar(imp: pd.DataFrame, out_path: Path, feature_label: dict[str, str]):
     d = imp.sort_values("mean_abs_shap")
     colors = [CATION_COLOR if b == "cation" else INORGANIC_COLOR for b in d.block]
     fig, ax = new_fig((9.4, max(4.5, 0.42 * len(d) + 1.5)))
@@ -47,7 +54,7 @@ def plot_bar(imp: pd.DataFrame, out_path: Path):
     span = d.mean_abs_shap.max()
     for i, v in enumerate(d.mean_abs_shap):
         ax.text(v + span * 0.012, i, f"{v:.4f}", va="center", ha="left", fontsize=9.5, color=INK)
-    ax.set_yticks(range(len(d))); ax.set_yticklabels(d.feature, fontsize=9.5)
+    ax.set_yticks(range(len(d))); ax.set_yticklabels(d.feature.map(lambda f: feature_label.get(f, f)), fontsize=9.5)
     ax.set_xlim(0, span * 1.18)
     ax.set_xlabel("mean |SHAP value|  (test split)", fontsize=11)
     handles = [plt.Rectangle((0, 0), 1, 1, color=INORGANIC_COLOR), plt.Rectangle((0, 0), 1, 1, color=CATION_COLOR)]
@@ -62,11 +69,19 @@ def main():
     ap.add_argument("--results", default="results_ml/ml_results.csv")
     ap.add_argument("--out-csv", default="results_ml/shap_importance.csv")
     ap.add_argument("--figures", default="figures")
+    ap.add_argument("--model", help="Restrict to one model family (rf/svm); default: best overall")
+    ap.add_argument("--setting", help="Restrict to one feature setting; default: best for the chosen model(s)")
     a = ap.parse_args()
 
-    results = pd.read_csv(a.results)
+    all_results = pd.read_csv(a.results); results = all_results
+    if a.model: results = results[results.model.eq(a.model)]
+    if a.setting: results = results[results.setting.eq(a.setting)]
+    if results.empty: raise ValueError(f"No ml_results row for model={a.model} setting={a.setting}")
     best = results.sort_values("test_macro_f1", ascending=False).iloc[0]
-    print(f"Best ML model: {best.model} / {best.setting}  (test_macro_f1={best.test_macro_f1:.4f})")
+    overall = all_results.sort_values("test_macro_f1", ascending=False).iloc[0]
+    # "best ML model" only for the overall winner; otherwise name the family it is best within (e.g. "best SVM")
+    model_label = "best ML model" if (best.model, best.setting) == (overall.model, overall.setting) else f"best {best.model.upper()}"
+    print(f"Explaining ML model: {best.model} / {best.setting}  (test_macro_f1={best.test_macro_f1:.4f}; {model_label})")
 
     bundle = joblib.load(best.saved_model)
     pipe, columns = bundle["model"], bundle["input_columns"]
@@ -96,18 +111,19 @@ def main():
     print(grouped.round(4).to_string())
 
     figures = Path(a.figures); figures.mkdir(parents=True, exist_ok=True)
-    fig, ax = plot_bar(imp, figures / "ml_shap_importance.png")
-    ax.set_title(f"SHAP feature importance ({target_label})\nbest ML model ({best.model}, {best.setting})", fontsize=13, loc="left", pad=12, linespacing=1.4)
+    feature_label = perm_mod.FEATURE_LABEL  # same display names as the permutation-importance figures
+    fig, ax = plot_bar(imp, figures / "ml_shap_importance.png", feature_label)
+    ax.set_title(f"SHAP feature importance ({target_label})\n{model_label} ({best.model}, {best.setting})", fontsize=13, loc="left", pad=12, linespacing=1.4)
     save(fig, figures / "ml_shap_importance.png")
 
     fig = plt.figure(figsize=(9.6, max(4.5, 0.42 * len(names) + 1.5)))
-    shap.summary_plot(values, features=X_test, feature_names=names, show=False, plot_size=None, max_display=len(names))
+    shap.summary_plot(values, features=X_test, feature_names=[feature_label.get(n, n) for n in names], show=False, plot_size=None, max_display=len(names))
     fig.patch.set_facecolor(BG)
     for ax in fig.axes: ax.set_facecolor(BG)
-    fig.suptitle(f"SHAP attributions ({target_label}) -- best ML model ({best.model}, {best.setting})", fontsize=12.5, x=0.01, ha="left", y=1.0)
+    fig.suptitle(f"SHAP attributions ({target_label}) -- {model_label} ({best.model}, {best.setting})", fontsize=12.5, x=0.01, ha="left", y=1.0)
     fig.tight_layout()
     fig.savefig(figures / "ml_shap_beeswarm.png", dpi=200, facecolor=BG, bbox_inches="tight")
-    print(f"\nSaved {out_csv}, figures/ml_shap_importance.png, figures/ml_shap_beeswarm.png")
+    print(f"\nSaved {out_csv}, {figures / 'ml_shap_importance.png'}, {figures / 'ml_shap_beeswarm.png'}")
 
 
 if __name__ == "__main__":

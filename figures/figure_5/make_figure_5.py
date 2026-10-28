@@ -5,7 +5,7 @@ Panels
 ------
 (a) LLM-assessed feature importance without training examples -- Borda score by model, for the
     no-data condition (llm_feature_importance/plot.py's
-    llm_feature_importance/results/figures/figure1_feature_importance_heatmap.png).
+    llm_feature_importance/results/figures/llm_feature_importance_heatmap.png).
 (b) Change in feature importance between the with-data and without-data settings
     (llm_feature_importance/compare.py's
     llm_feature_importance/comparison/comparison_delta_heatmap.png).
@@ -32,10 +32,10 @@ def parse_args() -> argparse.Namespace:
         "--panel-a",
         type=Path,
         default=repository_root / "llm_feature_importance" / "results" / "figures"
-        / "figure1_feature_importance_heatmap.png",
+        / "llm_feature_importance_heatmap.png",
         help=(
             "No-data LLM feature-importance heatmap (default: "
-            "llm_feature_importance/results/figures/figure1_feature_importance_heatmap.png)."
+            "llm_feature_importance/results/figures/llm_feature_importance_heatmap.png)."
         ),
     )
     parser.add_argument(

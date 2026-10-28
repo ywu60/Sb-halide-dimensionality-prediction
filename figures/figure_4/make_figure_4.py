@@ -1,59 +1,79 @@
-"""Reproduce Figure 4: feature importance for the best-performing ML and LLM configurations.
+"""Reproduce Figure 4 and its SVM supplementary figure: feature importance for the best-performing
+ML and LLM configurations.
 
-Panels
-------
-(a) Permutation importance for the best ML model (feature_importance/permutation_importance.py's
+Figure 4 panels
+---------------
+(a) Permutation importance for the best ML model, RF (feature_importance/permutation_importance.py's
     figures/ml_permutation_importance_no_title.png).
 (b) Grounded LLM feature importance, Borda score by model, for the paired "with labeled examples"
     condition (llm_feature_importance/stage2_plot.py's
-    llm_feature_importance/results_with_data/figures/figure1_feature_importance_heatmap.png).
+    llm_feature_importance/results_with_data/figures/llm_feature_importance_heatmap.png).
 
-This script only composes the two already-rendered panel images; it does not regenerate either
-panel itself. See the README for how to produce them first.
+Supplementary figure
+--------------------
+Permutation importance for the best SVM (single test set), drawn in the same style as panel (a)
+from results_ml/svm/permutation_importance.csv. If that file does not exist yet, it is computed first
+with ``python -m feature_importance.permutation_importance --model svm`` (needs results_ml/ml_results.csv
+and the trained models from ml_training.train_models).
+
+Figure 4 itself only composes the two already-rendered panel images; it does not regenerate either
+panel. See the README for how to produce them first.
 """
 from __future__ import annotations
 
 import argparse
+import subprocess
+import sys
 from pathlib import Path
 
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
+import pandas as pd
 
 BG = "#ffffff"
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPOSITORY_ROOT = SCRIPT_DIR.parents[1]
 
 
 def parse_args() -> argparse.Namespace:
-    script_dir = Path(__file__).resolve().parent
-    repository_root = script_dir.parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--panel-a",
         type=Path,
-        default=repository_root / "figures" / "ml_permutation_importance_no_title.png",
+        default=REPOSITORY_ROOT / "figures" / "ml_permutation_importance_no_title.png",
         help="ML permutation-importance panel (default: figures/ml_permutation_importance_no_title.png).",
     )
     parser.add_argument(
         "--panel-b",
         type=Path,
-        default=repository_root / "llm_feature_importance" / "results_with_data" / "figures"
-        / "figure1_feature_importance_heatmap.png",
+        default=REPOSITORY_ROOT / "llm_feature_importance" / "results_with_data" / "figures"
+        / "llm_feature_importance_heatmap.png",
         help=(
             "Grounded LLM feature-importance heatmap (default: "
-            "llm_feature_importance/results_with_data/figures/figure1_feature_importance_heatmap.png)."
+            "llm_feature_importance/results_with_data/figures/llm_feature_importance_heatmap.png)."
         ),
     )
-    parser.add_argument("--output", type=Path, default=script_dir / "output")
+    parser.add_argument(
+        "--svm-results",
+        type=Path,
+        default=REPOSITORY_ROOT / "results_ml" / "svm" / "permutation_importance.csv",
+        help="Best-SVM permutation importance (default: results_ml/svm/permutation_importance.csv; computed if missing).",
+    )
+    parser.add_argument("--data", type=Path, default=REPOSITORY_ROOT / "data" / "prepared_data.xlsx",
+                        help="Prepared data, used only if the SVM permutation importance has to be computed.")
+    parser.add_argument("--ml-results", type=Path, default=REPOSITORY_ROOT / "results_ml" / "ml_results.csv",
+                        help="ml_results.csv, used only if the SVM permutation importance has to be computed.")
+    parser.add_argument("--top", type=int, default=20, help="Features shown in the SVM figure (same as panel a).")
+    parser.add_argument("--output", type=Path, default=SCRIPT_DIR / "output")
     return parser.parse_args()
 
 
-def main() -> None:
-    args = parse_args()
-    for label, path in (("--panel-a", args.panel_a), ("--panel-b", args.panel_b)):
+def make_figure_4(panel_a: Path, panel_b: Path, output: Path) -> None:
+    for label, path in (("--panel-a", panel_a), ("--panel-b", panel_b)):
         if not path.exists():
             raise FileNotFoundError(f"Missing {label} image: {path}. See the README for how to generate it first.")
 
-    args.output.mkdir(parents=True, exist_ok=True)
-    panels = [("a", args.panel_a), ("b", args.panel_b)]
+    panels = [("a", panel_a), ("b", panel_b)]
     images = [mpimg.imread(path) for _, path in panels]
 
     # Give each panel a width proportional to its own image's aspect ratio (at a shared row
@@ -75,10 +95,40 @@ def main() -> None:
             fontsize=20, fontweight="bold", color="black", ha="left", va="top", clip_on=False,
         )
 
-    fig.savefig(args.output / "figure_4.png", dpi=600, facecolor=BG)
-    fig.savefig(args.output / "figure_4.pdf", facecolor=BG)
+    fig.savefig(output / "figure_4.png", dpi=600, facecolor=BG)
+    fig.savefig(output / "figure_4.pdf", facecolor=BG)
     plt.close(fig)
-    print(f"Saved Figure 4 to {args.output.resolve()}")
+    print(f"Saved Figure 4 to {output.resolve()}")
+
+
+def make_svm_supplement(svm_results: Path, data: Path, ml_results: Path, top: int, output: Path) -> None:
+    if not svm_results.exists():
+        print(f"{svm_results} not found; computing best-SVM permutation importance first...")
+        if not ml_results.exists():
+            raise FileNotFoundError(f"Missing {ml_results}. Run ml_training.train_models first (see the README).")
+        subprocess.run(
+            [sys.executable, "-m", "feature_importance.permutation_importance",
+             "--data", str(data), "--results", str(ml_results), "--model", "svm",
+             "--out", str(svm_results.parent), "--figures", str(REPOSITORY_ROOT / "figures" / "svm")],
+            cwd=REPOSITORY_ROOT, check=True,
+        )
+
+    # Same plotting function (and so the same style) as panel (a), imported from the repository root.
+    sys.path.insert(0, str(REPOSITORY_ROOT))
+    from feature_importance.permutation_importance import plot_importance
+
+    imp = pd.read_csv(svm_results).sort_values("mean_importance", ascending=False)
+    for suffix in ("png", "pdf"):
+        plot_importance(imp.head(top), "se_importance", "permutation importance", "",
+                        output / f"figure_4_supplement_svm.{suffix}", show_title=False)
+    print(f"Saved SVM supplementary figure to {output.resolve()}")
+
+
+def main() -> None:
+    args = parse_args()
+    args.output.mkdir(parents=True, exist_ok=True)
+    make_figure_4(args.panel_a, args.panel_b, args.output)
+    make_svm_supplement(args.svm_results, args.data, args.ml_results, args.top, args.output)
 
 
 if __name__ == "__main__":

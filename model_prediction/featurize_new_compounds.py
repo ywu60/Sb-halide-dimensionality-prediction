@@ -1,9 +1,5 @@
-"""Build inorganic + SMI-TED features for the 10 new mixed-halide Sb compounds, plus a hypothetical
-"pure-halide" sibling of each (same cation, same Sb-halide framework size, but the entire inorganic
-halide site collapsed onto whichever of Cl/I was already the majority)
-"""
+"""Build inorganic + SMI-TED features for the 10 new mixed-halide Sb compounds."""
 import argparse
-import re
 from pathlib import Path
 
 import pandas as pd
@@ -38,35 +34,6 @@ def build_input_df(input_path: Path, sheet_name: str):
     return df, new
 
 
-def pure_halide_row(row: pd.Series, majority: str, minority: str) -> pd.Series:
-
-    tokens = row.formula_normalized.split()
-    parsed = [re.match(r"([A-Z][a-z]?)([0-9.]*)", tok) for tok in tokens]
-    total = sum(float(m.group(2)) if m.group(2) else 1.0
-                for m in parsed if m.group(1) in (majority, minority))
-    n_str = str(int(total)) if float(total).is_integer() else str(total)
-    new_tokens = []
-    for tok, m in zip(tokens, parsed):
-        el = m.group(1)
-        if el == minority:
-            continue
-        new_tokens.append(f"{el}{n_str}" if el == majority else tok)
-    new_row = row.copy()
-    new_row["compound_id"] = f"{row.compound_id}_pure"
-    new_row["formula_normalized"] = " ".join(new_tokens)
-    new_row["Sb_halide"] = majority
-    return new_row
-
-
-def build_pure_halide_rows(mixed_df: pd.DataFrame, mixed_fractions: pd.DataFrame) -> pd.DataFrame:
-    rows = []
-    for i in range(len(mixed_df)):
-        cl, iod = mixed_fractions.iloc[i][["inorganic_Cl_fraction", "inorganic_I_fraction"]]
-        majority, minority = ("Cl", "I") if cl >= iod else ("I", "Cl")
-        rows.append(pure_halide_row(mixed_df.iloc[i], majority, minority))
-    return pd.DataFrame(rows).reset_index(drop=True)
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True, help="Workbook containing the candidate compounds")
@@ -76,30 +43,21 @@ def main():
     parser.add_argument("--batch-size", type=int, default=8)
     args = parser.parse_args()
 
-    mixed_df, raw = build_input_df(args.input, args.sheet)
-    mixed_fractions = prep.common_features(mixed_df)
-    pure_df = build_pure_halide_rows(mixed_df, mixed_fractions)
+    df, raw = build_input_df(args.input, args.sheet)
+    df = pd.concat([df, prep.common_features(df)], axis=1)
 
-    df = pd.concat([mixed_df, pure_df], ignore_index=True)
-    common = prep.common_features(df)
-    df = pd.concat([df, common], axis=1)
-
-    # The selected deployment model uses inorganic features plus SMI-TED embeddings.
+    # The selected deployment models use inorganic features plus SMI-TED embeddings.
     smi_feats = prep.smi_ted_embeddings(
         df.canonical_cation_smiles, str(args.smi_ted_dir), batch_size=args.batch_size
     ).reset_index(drop=True)
 
     feature_df = pd.concat([df.reset_index(drop=True), smi_feats], axis=1)
-
-    feature_df["actual_formula_scxrd"] = pd.concat(
-        [raw["Actual formula (SCXRD)"], pure_df["formula_normalized"]], ignore_index=True
-    ).to_numpy()
+    feature_df["actual_formula_scxrd"] = raw["Actual formula (SCXRD)"].to_numpy()
 
     out_path = args.output
     out_path.parent.mkdir(parents=True, exist_ok=True)
     feature_df.to_csv(out_path, index=False)
-    print(f"Saved {feature_df.shape} feature matrix to {out_path} "
-          f"(10 mixed-halide + 10 pure-halide siblings)")
+    print(f"Saved {feature_df.shape} feature matrix to {out_path} ({len(feature_df)} new compounds)")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,8 @@
-"""Permutation feature importance for the best ML model (ranked by test_macro_f1 in ml_results.csv).
+"""Permutation feature importance for the best ML model (ranked by test_macro_f1 in ml_results.csv),
+or for the best configuration of one model family with --model (e.g. --model svm).
 
 --data prepared_data.xlsx --results results_ml/ml_results.csv --out results_ml
+--model svm --out results_ml/svm --figures figures/svm
 
 Writes:
   results_ml/permutation_importance.csv                single test-set estimate
@@ -129,11 +131,19 @@ def main():
     ap.add_argument("--n-repeats", type=int, default=300)
     ap.add_argument("--cv-n-repeats", type=int, default=100)
     ap.add_argument("--cv-folds", type=int, default=5)
+    ap.add_argument("--model", help="Restrict to one model family (rf/svm); default: best overall")
+    ap.add_argument("--setting", help="Restrict to one feature setting; default: best for the chosen model(s)")
     a = ap.parse_args()
 
-    results = pd.read_csv(a.results)
+    all_results = pd.read_csv(a.results); results = all_results
+    if a.model: results = results[results.model.eq(a.model)]
+    if a.setting: results = results[results.setting.eq(a.setting)]
+    if results.empty: raise ValueError(f"No ml_results row for model={a.model} setting={a.setting}")
     best = results.sort_values("test_macro_f1", ascending=False).iloc[0]
-    print(f"Best ML model: {best.model} / {best.setting}  (test_macro_f1={best.test_macro_f1:.4f})")
+    overall = all_results.sort_values("test_macro_f1", ascending=False).iloc[0]
+    # "best ML model" only for the overall winner; otherwise name the family it is best within (e.g. "best SVM")
+    model_label = "best ML model" if (best.model, best.setting) == (overall.model, overall.setting) else f"best {best.model.upper()}"
+    print(f"Explaining ML model: {best.model} / {best.setting}  (test_macro_f1={best.test_macro_f1:.4f}; {model_label})")
 
     bundle = joblib.load(best.saved_model)
     pipe, columns = bundle["model"], bundle["input_columns"]
@@ -169,7 +179,7 @@ def main():
     plot_importance(
         imp.head(a.top), "se_importance",
         "permutation importance",
-        f"Permutation importance (single test set)\nbest ML model ({best.model}, {best.setting})",
+        f"Permutation importance (single test set)\n{model_label} ({best.model}, {best.setting})",
         figures / "ml_permutation_importance.png",
     )
     plot_importance(
@@ -189,7 +199,7 @@ def main():
     plot_importance(
         cv_imp, "se_importance",
         f"permutation importance  (mean over {a.cv_folds} held-out CV folds; error = ±1 SE across folds)",
-        f"Cross-validated permutation importance\nbest ML model ({best.model}, {best.setting})",
+        f"Cross-validated permutation importance\n{model_label} ({best.model}, {best.setting})",
         figures / "ml_permutation_importance_cv.png",
     )
 

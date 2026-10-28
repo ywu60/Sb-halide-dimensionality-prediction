@@ -20,6 +20,7 @@ data/*
 !data/merged_compound_cif_cation.xlsx
 !data/prepared_data.xlsx
 !data/new_mixed_halide_sb_compounds.xlsx
+!data/train_test_split.csv
 
 # Generated results
 results_ml/
@@ -62,6 +63,10 @@ figures/*
 !figures/figure_4/**
 !figures/figure_5/
 !figures/figure_5/**
+# "!figures/" above re-includes every directory named figures, so re-ignore the figures
+# llm_feature_importance.plot generates next to its reference CSVs.
+llm_feature_importance/results/figures/
+llm_feature_importance/results_with_data/figures/
 models_fulldata/
 *_checkpoint.csv
 raw_llm_responses.jsonl
