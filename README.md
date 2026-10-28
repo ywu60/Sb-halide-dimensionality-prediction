@@ -49,7 +49,7 @@ to model evaluation and prediction:
 -   `figures/`: publication-figure scripts, generated publication
     figures, and diagnostic figures.
 
-## Installation {#installation}
+## Installation
 
 Use Python 3.11 or 3.12:
 
@@ -156,7 +156,7 @@ Intermediate JSONL artifacts and cached LLM responses are also created
 under `data/`. Pipeline settings, model assignments, retrieval limits,
 and input/output paths are defined in `config/pipeline.yaml`.
 
-## ML workflow {#ml-workflow}
+## ML workflow
 
 The train/test split groups compounds by both source paper and organic
 cation, so no paper and no cation structure appears in both sets. A few
@@ -253,7 +253,7 @@ python -m llm_prediction.predict_new_compounds \
   --output results_llm/new_compound_predictions.csv
 ```
 
-## LLM feature importance {#llm-feature-importance}
+## LLM feature importance
 
 This experiment asks each of four LLMs (GPT-5.1, GPT-5.5, GPT-5.6 Sol,
 and GPT-6 Astra) to rank seven feature categories, such as the halide:Sb
@@ -411,7 +411,7 @@ for reasons outside this code's control:
     not guaranteed to be bit-for-bit reproducible across calls even on
     an unchanged snapshot with identical prompts.
 
-### Figure 4: feature importance for the best-performing ML and LLM configurations {#figure-4-feature-importance-for-the-best-performing-ml-and-llm-configurations}
+### Figure 4: feature importance for the best-performing ML and LLM configurations
 
 Figure 4 contains:
 
@@ -464,7 +464,7 @@ workflow](#ml-workflow)).
 `figures/figure_4/figure_4_supplement_svm_reference.png` shows the
 expected result.
 
-### Figure 5: LLM feature importance without training examples, and the with/without-data difference {#figure-5-llm-feature-importance-without-training-examples-and-the-withwithout-data-difference}
+### Figure 5: LLM feature importance without training examples, and the with/without-data difference
 
 Figure 5 contains:
 
