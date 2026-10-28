@@ -352,7 +352,7 @@ python figures/figrue_2/make_figure_2.py \
 Both the combined figure (`figure_2.png`/`.pdf`) and the individual
 panels are written to `figures/figrue_2/output/`.
 
-### Figure 3: LLM performance across prompting conditions and cation representations {#figure-3-llm-performance-across-prompting-conditions-and-cation-representations}
+### Figure 3: LLM performance across prompting conditions and cation representations
 
 Figure 3 shows test macro-F1 for five LLMs under zero-shot, 12-shot, and
 all-shot prompting, using either IUPAC cation names or SMILES as input,
