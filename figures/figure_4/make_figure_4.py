@@ -92,7 +92,7 @@ def make_figure_4(panel_a: Path, panel_b: Path, output: Path) -> None:
         ax.axis("off")
         ax.text(
             0.01, 0.99, f"({label})", transform=ax.transAxes,
-            fontsize=20, fontweight="bold", color="black", ha="left", va="top", clip_on=False,
+            fontsize=20, fontweight="normal", color="black", ha="left", va="top", clip_on=False,
         )
 
     fig.savefig(output / "figure_4.png", dpi=600, facecolor=BG)
